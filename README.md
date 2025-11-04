@@ -30,7 +30,7 @@ pip install -r requirements.txt
 
 ```
 
-### 3. Inference 
+## Inference
 
 To run the inference of vlm using huggingface api on one image:  
 
