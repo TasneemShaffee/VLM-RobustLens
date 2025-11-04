@@ -41,4 +41,6 @@ python vlm_inference.py --cache_dir <directory to save the vlm> --model_name "qw
 ```
 To run the inference of vlm using huggingface api on one image  and check the accessible attention maps:
 
+```bash
 python vlm_inference.py --cache_dir <directory to save the vlm> --model_name "qwen3vl" --enable_attn_checker
+```
