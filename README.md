@@ -30,6 +30,15 @@ pip install -r requirements.txt
 
 ```
 
+## Datasets Preparation:
+From the current parent directory, write the following commands: 
+```bash
+mkdir Datasets
+cd Datasets
+wget http://images.cocodataset.org/zips/val2014.zip
+unzip val2014.zip
+```
+
 ## Inference
 
 To run the inference of vlm using huggingface api on one image:  
@@ -44,3 +53,10 @@ To run the inference of vlm using huggingface api on one image  and check the ac
 ```bash
 python vlm_inference.py --cache_dir <directory to save the vlm> --model_name "qwen3vl" --enable_attn_checker
 ```
+
+To run the full pipeline on cyclic consistency dataset (human paraphrased dataset):
+
+```bash
+python main.py --cache_dir <cashe directory that stores huggingface models> --model_name "internvl" --save_frequency 5
+```
+The choices for --model_name configuration: "internvl", "gemma3", "qwen3vl"
