@@ -31,7 +31,7 @@ pip install -r requirements.txt
 ```
 
 ## Datasets Preparation:
-From the current parent directory, write the following commands: 
+From the current parent directory, write the following commands to download the VQAv2 validation: 
 ```bash
 mkdir Datasets
 cd Datasets
