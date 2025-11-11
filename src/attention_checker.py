@@ -1,7 +1,7 @@
 import re
 import torch
 from typing import Dict, List, Tuple
-
+from .attn_spy import CURRENT_LAYER
 
 _IS_ATTN = re.compile(r"(?:^|\.)(self_attn|cross_attn|crossattention)(?:$|\.)", re.I)
 
@@ -52,6 +52,15 @@ def register_attn_hooks(attn_blocks):
         handles.append(mod.register_forward_hook(mk(name)))
     return handles, captured
 
+
+def tag_attention_blocks(model):
+    handles = []
+    for name, mod in discover_attention_blocks(model):
+        def pre_hook(m, args, _name=name): CURRENT_LAYER.set(_name)
+        def post_hook(m, args, out, _name=name): CURRENT_LAYER.set("(unknown)")
+        handles.append(mod.register_forward_pre_hook(pre_hook))
+        handles.append(mod.register_forward_hook(post_hook))
+    return handles
 @torch.no_grad()
 def probe_attentions_with_runner(
     runner,                 

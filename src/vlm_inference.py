@@ -1,18 +1,23 @@
 
 import os
+
 from abc import ABC
 from typing import Optional, Dict, Any, Union, List
 from PIL import Image
 import torch
+
+
+
 import torchvision.transforms as T
 from io import BytesIO
 import os
 import requests
+
 from transformers import (
     AutoConfig, AutoProcessor, AutoTokenizer,
     AutoModelForVision2Seq, AutoModelForCausalLM,AutoModel
 )
-from attention_checker import probe_attentions_with_runner
+
 from torchvision.transforms.functional import InterpolationMode
 import argparse
 def _dtype():
@@ -57,7 +62,7 @@ class VLMRunner(ABC):
 
         self.cfg = None
         if enable_attn:
-            self.cfg = AutoConfig.from_pretrained(model_id, cache_dir=cache_dir, trust_remote_code=trust_remote_code)
+            self.cfg = AutoConfig.from_pretrained(model_id, cache_dir=cache_dir, use_fast=True,trust_remote_code=trust_remote_code)
             if getattr(self.cfg, "attn_implementation", None) in (None, "sdpa", "flash_attention_2"):
                 self.cfg.attn_implementation = "eager"
             if hasattr(self.cfg, "output_attentions"): self.cfg.output_attentions = True
@@ -167,7 +172,7 @@ class InternVLRunner(VLMRunner):
     
     supports_template_packs_images = False 
     
-
+    print("Setting up InternVLRunner")
     def model_initialize(self):
         self.tokenizer = self.build_tokenizer(self.model_id)
         self.model =  AutoModel.from_pretrained(self.model_id, **self.common)
@@ -400,7 +405,7 @@ class CogVLMRunner(VLMRunner):
 
 DEFAULT_IDS = {
     "qwen3vl": "Qwen/Qwen3-VL-4B-Instruct",      
-    "gemma3":  "google/gemma-3-4b-pt",
+    "gemma3":  "google/gemma-3-4b-it",
     "llama3v": "meta-llama/Llama-3.2-11B-Vision",
     "internvl":"OpenGVLab/InternVL3_5-4B",
     "cogvlm2": "THUDM/cogvlm2-llama3-chat-19B",
@@ -417,33 +422,7 @@ def load_runner(name: str, *, model_id: Optional[str] = None, **kwargs) -> VLMRu
  
     return VLMRunner(model_id, **kwargs)
 
-def parse_args():
-    parser = argparse.ArgumentParser(description="Run attention probe with arguments.")
-    parser.add_argument("--cache_dir", type=str, required=True, help="Path to cache directory.")
-    parser.add_argument("--model_name", type=str, required=True, choices=["gemma3", "qwen3vl", "internvl"], ,help="Model name to load.")
-    parser.add_argument("--img_url", type=str, required=True, help="URL of the input image.")
-    parser.add_argument("--text", type=str, required=True, help="Prompt text.")
-    parser.add_argument("--enable_attn", action="store_true", help="Enable attention capture.")
-    parser.add_argument("--do_generate", action="store_true", help="Generate output text.")
-    parser.add_argument("--enable_attn_checker", action="store_true", help="Check if attention maps are accessible.")
-    parser.add_argument("--max_new_tokens", type=int, default=128, help="Max new tokens for generation.")
-    return parser.parse_args()
-if __name__ == "__main__":
-    args=parse_args()
-    CACHE = args.cache_dir 
-    runner = load_runner(args.model_name, cache_dir=CACHE, enable_attn=True)
 
-   
-    img_url = "https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen-VL/assets/demo.jpeg"
-    text = "Describe this image."
-    if args.enable_attn_checker:
-        captured, found, missing = probe_attentions_with_runner(runner, img_url, text)
-        print(f"Captured {len(captured)} attention tensors.")
- 
-    out_texts = runner.run(img_url, text, do_generate=True, gen_kwargs={"max_new_tokens": 128})
-    print(out_texts)
-
-   
     #outputs = runner.run(img_url, text, do_generate=False)
     #if hasattr(outputs, "attentions") and outputs.attentions is not None:
     #    print("Got attention maps.")
