@@ -12,8 +12,9 @@ from src import *
 
 from metrics import *
 import json
-
-from utility import _image_exists, set_text_layers_eager, attach_attention_hooks, detach_hooks, clear_attn_buffers
+from itertools import islice
+import random
+from utility import _image_exists, set_text_layers_eager, attach_attention_hooks, detach_hooks, clear_attn_buffers, _agg_rows, _group_by_type, _mean_or_nan, _atomic_write_json
 def process_batch(groups,runner):
     all_rows = []
     for gid, grp in groups.items():
@@ -101,11 +102,8 @@ import os, json, math, statistics as stats
 from collections import defaultdict
 
 
-_METRIC_KEYS = ["kl_div", "jl_div", "cosine", "spearman",
-                "iou_topk", "entropy_diff", "center_shift"]
 
-
-def process_dataset(runner, groups, *, model_name, dataset_name, out_json_path,save_frequency=5):
+def process_dataset(runner, groups, *, model_name, dataset_name, out_json_path,save_frequency=5,max_images=None,sample_mode="first",seed=0):
   
     set_text_layers_eager(runner.model, model_name)
 
@@ -122,7 +120,19 @@ def process_dataset(runner, groups, *, model_name, dataset_name, out_json_path,s
     
         all_rows_all_images = []
         skipped_missing = 0
-        for gid, grp in groups.items():
+        if max_images is not None:
+            if sample_mode == "random":
+                rng=random.seed(seed)
+                keys = list(groups.keys())
+                if max_images> len(keys):
+                    selected_ids = keys
+                else: selected_ids=rng.sample(keys,max_images) 
+                iter_items=((gid,groups[gid]) for gid in selected_ids)    
+            else:
+                iter_items = islice(groups.items(), max_images)
+               
+        #for gid, grp in groups.items():
+        for gid, grp in iter_items:
             img_path   = grp["image"]
             image_id   = grp.get("image_id", gid)
             print(f"Processing image_id={image_id} from group_id={gid}... img_path={img_path}")
@@ -183,6 +193,7 @@ def process_dataset(runner, groups, *, model_name, dataset_name, out_json_path,s
                 "summary": per_image_summary,
             }
             results_payload["num_images"] += 1
+            print("Number of images processed: ",results_payload["num_images"])
             #print("results_payload[num_images] ",results_payload["num_images"])
             if results_payload["num_images"]%save_frequency==0:
                 results_payload["dataset_summary"] = {
@@ -228,6 +239,10 @@ def main():
                     model_name=args.model_name,
                     dataset_name=dataset_name,
                     out_json_path=out_json,
-                    save_frequency=args.save_frequency)
+                    save_frequency=args.save_frequency,
+                    max_images=10000,          
+                    sample_mode="first",       
+                    seed=0                    
+                    )
 if __name__ == "__main__":
     main()

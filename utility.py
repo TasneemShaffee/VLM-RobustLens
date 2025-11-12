@@ -7,6 +7,8 @@ import torch
 from src import *
 from metrics import *
 import json
+import os, json, math, statistics as stats
+from collections import defaultdict
 """
 def set_text_layers_eager(model,model_name=None):
     model_layers= None
@@ -43,6 +45,12 @@ def attach_attention_hooks(runner,model_name=None):
         hooks.append(attn.register_forward_hook(_text_attn_hook, with_kwargs=True))
     return hooks
 """
+#_METRIC_KEYS = ["kl_div", "jl_div", "cosine", "spearman",
+#                "iou_topk", "entropy_diff", "center_shift"]
+
+_METRIC_KEYS = ["kl_div", "jl_div",
+                "iou_topk", "center_shift"]
+
 def _atomic_write_json(obj, path):
     tmp = path + ".tmp"
     with open(tmp, "w") as f:

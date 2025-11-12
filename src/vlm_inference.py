@@ -15,7 +15,7 @@ import requests
 
 from transformers import (
     AutoConfig, AutoProcessor, AutoTokenizer,
-    AutoModelForVision2Seq, AutoModelForCausalLM,AutoModel
+    AutoModelForVision2Seq, AutoModelForCausalLM,AutoModel,AutoModelForImageTextToText
 )
 
 from torchvision.transforms.functional import InterpolationMode
@@ -75,7 +75,7 @@ class VLMRunner(ABC):
         self.device = None
         self.common = dict(
             cache_dir=cache_dir, trust_remote_code=trust_remote_code, token=hf_token,
-            torch_dtype=self.torch_dtype, device_map=device_map, config=self.cfg,
+            dtype=self.torch_dtype, device_map=device_map, config=self.cfg,
         )
         self.model_initialize()
     def model_initialize(self):
@@ -89,7 +89,7 @@ class VLMRunner(ABC):
         )
       
         try:
-            self.model = AutoModelForVision2Seq.from_pretrained(self.model_id, **self.common)
+            self.model = AutoModelForImageTextToText.from_pretrained(self.model_id, **self.common)
         except Exception:
             self.model = AutoModelForCausalLM.from_pretrained(self.model_id, **self.common)
         self.model.eval()
@@ -166,13 +166,13 @@ class VLMRunner(ABC):
 
 class Qwen3VLRunner(VLMRunner):
     supports_template_packs_images = True
-   
+  
 
 class InternVLRunner(VLMRunner):
     
     supports_template_packs_images = False 
     
-    print("Setting up InternVLRunner")
+    
     def model_initialize(self):
         self.tokenizer = self.build_tokenizer(self.model_id)
         self.model =  AutoModel.from_pretrained(self.model_id, **self.common)
@@ -414,6 +414,7 @@ DEFAULT_IDS = {
 
 def load_runner(name: str, *, model_id: Optional[str] = None, **kwargs) -> VLMRunner:
     key = name.lower()
+    print(f"Loading runner for model: {key}")
     model_id = model_id or DEFAULT_IDS.get(key)
     if key.startswith("qwen"):   return Qwen3VLRunner(model_id, **kwargs)
     if key.startswith("intern"): return InternVLRunner(model_id, **kwargs)

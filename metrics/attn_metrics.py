@@ -226,11 +226,11 @@ def compare_attention_runs(maps_A, maps_B):
             "shape_A": tuple(ta.shape),
             "shape_B": tuple(tb.shape),
             "kl_div": kl_divergence(pa, pb),
-            "cosine": cosine_sim(pa, pb),
-            "spearman": spearman_sim(pa, pb),
+            #"cosine": cosine_sim(pa, pb),
+            #"spearman": spearman_sim(pa, pb),
             "jl_div":js_divergence(pa,pb),
             "iou_topk": iou_topk(pa,pb),
-            "entropy_diff":entropy_diff(pa,pb),
+            #"entropy_diff":entropy_diff(pa,pb),
             "center_shift":center_shift(pa,pb),
             "type": a.get("type", B_by_name[name].get("type", "unknown")),
             #"type": "vision" if (pa.numel() == (ta.shape[-1]*ta.shape[-2]) and ta.shape[-1]==ta.shape[-2]) else "textish",
@@ -267,19 +267,20 @@ def print_results(results, top=10):
             f"{comp:7s} | "
             f"KL={avg('kl_div', comp):.4f} | "
             f"JS={avg('jl_div', comp):.4f} | "
-            f"Cos={avg('cosine', comp):.4f} | "
-            f"Spearman={avg('spearman', comp):.4f} | "
+            #f"Cos={avg('cosine', comp):.4f} | "
+            #f"Spearman={avg('spearman', comp):.4f} | "
             f"IoU@TopK={avg('iou_topk', comp):.4f} | "
-            f"ΔEntropy={avg('entropy_diff', comp):.4f} | "
+            #f"ΔEntropy={avg('entropy_diff', comp):.4f} | "
             f"CenterShift={avg('center_shift', comp):.4f}"
         )
 
     print("\n=== Overall means ===")
     print(
         f"KL={avg('kl_div'):.4f} | JS={avg('jl_div'):.4f} | "
-        f"Cos={avg('cosine'):.4f} | Spearman={avg('spearman'):.4f} | "
+        #f"Cos={avg('cosine'):.4f} | Spearman={avg('spearman'):.4f} | "
         f"IoU@TopK={avg('iou_topk'):.4f} | "
-        f"ΔEntropy={avg('entropy_diff'):.4f} | CenterShift={avg('center_shift'):.4f}"
+        #f"ΔEntropy={avg('entropy_diff'):.4f} | CenterShift={avg('center_shift'):.4f}"
+        f"CenterShift={avg('center_shift'):.4f}"
     )
 
 
