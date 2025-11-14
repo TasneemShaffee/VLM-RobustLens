@@ -5,8 +5,6 @@ from dataset import *
 
 import os
 import torch
-#from src.attn_spy import init_attention_spy, ATTMAPS
-#ATTMAPS = init_attention_spy()
 import argparse
 from src import *
 
@@ -227,11 +225,13 @@ def main():
 
     runner = load_runner(args.model_name, cache_dir=CACHE, enable_attn=True)
 
- 
-    json_path  = "./Datasets/compressed/v2_OpenEnded_mscoco_valrep2014_humans_og_questions.json"
-    images_dir = "./Datasets/val2014/val2014/"
+    json_path  = "../Datasets/compressed/v2_OpenEnded_mscoco_valrep2014_humans_og_questions.json"
+    images_dir = "../Datasets/val2014/"
+
     print("Loading Dataset")
+
     groups = load_vqa_rephrasings(json_path, images_dir)
+
     print("Done Loading Dataset")
 
     out_json = os.path.join("experiments", dataset_name, args.model_name, "metrics_and_summaries.json")
@@ -242,7 +242,7 @@ def main():
                     save_frequency=args.save_frequency,
                     max_images=10000,          
                     sample_mode="first",       
-                    seed=0                    
-                    )
+                    seed=0)
+
 if __name__ == "__main__":
     main()
