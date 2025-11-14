@@ -44,11 +44,10 @@ https://facebookresearch.github.io/VQA-Rephrasings/
 
 It should be saved under Datasets to have structure as follows:
 
-Datasets/
-└── compressed/
-    ├── v2_mscoco_valrep2014_humans_og_annotations.json
-    └── v2_OpenEnded_mscoco_valrep2014_humans_og_questions.json
-
+- Datasets
+  - compressed
+    - v2_mscoco_valrep2014_humans_og_annotations.json
+    - v2_OpenEnded_mscoco_valrep2014_humans_og_questions.json
 ## Inference
 
 To run the inference of vlm using huggingface api on one image:  
