@@ -14,8 +14,8 @@ from metrics import *
 import json
 from itertools import islice
 import random
-from utility import _image_exists, set_text_layers_eager, attach_attention_hooks, detach_hooks, clear_attn_buffers, _agg_rows, _group_by_type, _mean_or_nan, _atomic_write_json
-def process_batch(groups,runner):
+from utility import _image_exists, set_text_layers_eager, attach_attention_hooks, detach_hooks, _agg_rows, _group_by_type, _mean_or_nan, _atomic_write_json
+def process_batch(groups,runner,skip_vision=False):
     all_rows = []
     for gid, grp in groups.items():
         img = grp["image"]
@@ -31,7 +31,7 @@ def process_batch(groups,runner):
         _ = runner.run(img, qB, do_generate=False)
         mB = snapshot()
 
-        rows = compare_attention_runs(mA, mB)
+        rows = compare_attention_runs(mA, mB, skip_vision=skip_vision)
         for r in rows:
             r["group_id"] = gid
             r["image_id"] = grp["image_id"]
@@ -103,7 +103,7 @@ from collections import defaultdict
 
 
 
-def process_dataset(runner, groups, *, model_name, dataset_name, out_json_path,save_frequency=5,max_images=None,sample_mode="first",seed=0):
+def process_dataset(runner, groups, *, model_name, dataset_name, out_json_path,save_frequency=5,max_images=None,sample_mode="first",seed=0,skip_vision=False):
   
     set_text_layers_eager(runner.model, model_name)
 
@@ -169,7 +169,7 @@ def process_dataset(runner, groups, *, model_name, dataset_name, out_json_path,s
                 #print(f"  Packaging attention maps done.")
                 clear_attn_buffers()
                 #print(f"  Comparing attention runs...")
-                rows = compare_attention_runs(maps_A, maps_B) 
+                rows = compare_attention_runs(maps_A, maps_B,skip_vision=skip_vision) 
                 #print(f"  Comparison done. Results:")
                 #print_results(rows, top=10)
                 per_image_pairs[f"q0|q{idx}"] = rows
@@ -242,7 +242,8 @@ def main():
                     save_frequency=args.save_frequency,
                     max_images=10000,          
                     sample_mode="first",       
-                    seed=0                    
+                    seed=0,
+                    skip_vision=False                    
                     )
 if __name__ == "__main__":
     main()
