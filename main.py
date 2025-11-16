@@ -51,6 +51,7 @@ def parse_args():
     #parser.add_argument("--do_generate", action="store_true", help="Generate output text.")
     #parser.add_argument("--enable_attn_checker", action="store_true", help="Check if attention maps are accessible.")
     #parser.add_argument("--max_new_tokens", type=int, default=128, help="Max new tokens for generation.")
+    parser.add_argument("--dataset", type=str, default="cyc", help="Provide dataset name abbreviation: vg or cyc")
     parser.add_argument("--save_frequency", type=int, default=5, help="Provide the frequency of saving intermediate results.")
     return parser.parse_args()
 
@@ -223,17 +224,31 @@ def process_dataset(runner, groups, *, model_name, dataset_name, out_json_path,s
 def main():
     args = parse_args()
     CACHE = args.cache_dir
-    dataset_name = "COCO-rephrase"  
+    dataset_name = "" 
+    json_name = args.dataset
+
 
     runner = load_runner(args.model_name, cache_dir=CACHE, enable_attn=True)
+    groups = None
 
- 
-    json_path  = "./Datasets/compressed/v2_OpenEnded_mscoco_valrep2014_humans_og_questions.json"
-    images_dir = "./Datasets/val2014/val2014/"
     print("Loading Dataset")
-    groups = load_vqa_rephrasings(json_path, images_dir)
-    print("Done Loading Dataset")
+    match json_name:
+        case "cyc":
+            dataset_name = "COCO-rephrase" 
+            json_path  = "./Datasets/compressed/v2_OpenEnded_mscoco_valrep2014_humans_og_questions.json"
+            images_dir = "./Datasets/val2014/val2014/"
+            groups = load_vqa_rephrasings(json_path, images_dir)
+        case "vg":
+            dataset_name = "VG-rephrase"
+            json_path = "./Datasets/compressed/vg_question_answers.json"
+            images_dir = "./Datasets/images/vg_100k"
+            groups = load_vg_vqa_rephrasings(json_path, images_dir) 
 
+    if groups: 
+        print("Done Loading Dataset") 
+    else: 
+        print("Error Loading Dataset")
+        return
     out_json = os.path.join("experiments", dataset_name, args.model_name, "metrics_and_summaries.json")
     process_dataset(runner, groups,
                     model_name=args.model_name,
