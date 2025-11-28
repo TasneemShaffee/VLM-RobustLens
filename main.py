@@ -45,7 +45,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Run attention probe with arguments.")
     parser.add_argument("--cache_dir", type=str, required=True, help="Path to cache directory.")
     parser.add_argument("--model_name", type=str, required=True, choices=["gemma3", "qwen3vl", "internvl"],help="Model name to load.")
-    #parser.add_argument("--img_url", type=str, required=True, help="URL of the input image.")
+    #parser.add_argument("--img_url", t                  ype=str, required=True, help="URL of the input image.")
     #parser.add_argument("--text", type=str, required=True, help="Prompt text.")
     #parser.add_argument("--enable_attn", action="store_true", help="Enable attention capture.")
     #parser.add_argument("--do_generate", action="store_true", help="Generate output text.")
