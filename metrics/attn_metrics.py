@@ -199,7 +199,7 @@ def center_shift(A2d, B2d, normalize_by="diag"):
 
 
 
-def compare_attention_runs(maps_A, maps_B):
+def compare_attention_runs(maps_A, maps_B,skip_vision=False):
 
     B_by_name = {x["name"]: x for x in maps_B}
     results = []
@@ -207,6 +207,12 @@ def compare_attention_runs(maps_A, maps_B):
         name = a["name"]
         if name not in B_by_name: 
             continue
+       
+        if skip_vision:
+            ta_type = a.get("type")
+            tb_type = B_by_name[name].get("type")
+            if ta_type == "vision" or tb_type == "vision":
+                continue    
         ta = a["map"]  
         tb = B_by_name[name]["map"]
 

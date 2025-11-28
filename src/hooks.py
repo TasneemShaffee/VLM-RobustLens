@@ -111,7 +111,7 @@ def _text_attn_hook(mod, args, kwargs, out):
     attn_output, attn_weights = out
     if attn_weights is not None:
         text_attn_weights.append(attn_weights.detach().cpu())
-
+        #print("Text attention hook called. ",len(text_attn_weights))
 
 
 
@@ -123,7 +123,7 @@ def _internvl_vision_attn_hook(mod, args, kwargs, out):
             vision_attn_weights.append([attn_weights.detach().cpu()])
     else:
         vision_attn_weights.append([None])  
-    print("InternVL vision attention hook called. ",vision_attn_weights)
+    #print("InternVL vision attention hook called. ",vision_attn_weights)
 def attach_internvl_vision_hooks(model):
     hooks = []
     stacks = []
@@ -147,6 +147,7 @@ def _internvl_text_attn_hook(mod, args, kwargs, out):
         _, w = out
         if w is not None:
             text_attn_weights.append(w.detach().cpu())
+    #print("InternVL atten weights length. ",len(text_attn_weights))        
 
 def attach_internvl_text_hooks(model):
     hooks = []
