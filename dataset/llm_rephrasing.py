@@ -21,9 +21,11 @@ def get_rephrasings(messages):
 
 def parse_rephrasings(rephrasings):
     print(rephrasings)
+    return "testing"
 
 
 def gram_var_and_syn_rep(question, count):
+
     messages = [
         {"role": "user", f"content": "You are am English grammar expert. \
          Concisely generate rephrasings of this question: {question}. \
@@ -36,6 +38,7 @@ def gram_var_and_syn_rep(question, count):
 
 
 
+
 def back_translate(question, count):
     forward_messages = [
         {"role": "forward_translator", f"content": "You are an expert in German to English translations. \
@@ -45,7 +48,7 @@ def back_translate(question, count):
     ]
     forward_translation = get_rephrasings(forward_messages)
 
-    translated_question = parse_rephrasings(forward_translation)
+    translated_question = parse_rephrasings(forward_translation)[0]
 
     backward_messages = [
          {"role": "backward_translator", f"content": "You are an expert in English to German translations. \
@@ -58,3 +61,16 @@ def back_translate(question, count):
 
     return parse_rephrasings(backward_translations)
 
+def main():
+    question = "How do I apply for financial aid?"
+    count = 3
+
+    print("\n### TEST: GRAMMAR + SYNTACTIC REPHRASINGS ###")
+    gram_var_and_syn_rep(question, count)
+
+    print("\n### TEST: BACK-TRANSLATION PARAPHRASING ###")
+    back_translate(question, count)
+
+
+if __name__ == "__main__":
+    main()
