@@ -5,6 +5,7 @@ from collections import defaultdict
 def load_vqa_rephrasings(json_path, images_dir):
     data = json.loads(Path(json_path).read_text())
     rows = []
+    
     for q in data["questions"]:
         image_id = q["image_id"]
         group_id = q.get("rephrasing_of", q["question_id"])  

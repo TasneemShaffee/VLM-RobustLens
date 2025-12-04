@@ -37,8 +37,17 @@ def load_vg_vqa_rephrasings(json_path, images_dir):
             "valid_answers": qa['answer'],
             "image": str(image_file),
         })
-
-
+        if group_id == qa["qa_id"]:
+            rephrasings = gram_var_and_syn_rep(qa["question"], count=3) + back_translate(qa["question"], count=3)
+            for r in rephrasings:
+                rows.append({
+                     "rephrasing_of": qa["qa_id"],
+                      "group_id": group_id,
+                      "image_id": image_id,
+                      "question": r,
+                      "valid_answers": qa['answer'],
+                      "image": str(image_file),
+                })
     groups = defaultdict(lambda: {"questions": [], "answers": None, "image_id": None, "image": None})
     for row in rows:
         g = groups[row["group_id"]]

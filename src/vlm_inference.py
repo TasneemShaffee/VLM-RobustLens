@@ -564,6 +564,6 @@ def load_runner(name: str, *, model_id: Optional[str] = None, **kwargs) -> VLMRu
     return VLMRunner(model_id, **kwargs)
 
 
-    outputs = runner.run(img_url, text, do_generate=False)
-    if hasattr(outputs, "attentions") and outputs.attentions is not None:
-       print("Got attention maps.")
+    #outputs = runner.run(img_url, text, do_generate=False)
+    #if hasattr(outputs, "attentions") and outputs.attentions is not None:
+    #    print("Got attention maps.")
