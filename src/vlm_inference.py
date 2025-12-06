@@ -560,7 +560,6 @@ def load_runner(name: str, *, model_id: Optional[str] = None, **kwargs) -> VLMRu
     if key.startswith("intern"): return InternVLRunner(model_id, **kwargs)
     if key.startswith("gemma"):  return Gemma3Runner(model_id, **kwargs)
     if key.startswith("cog"):    return CogVLMRunner(model_id, **kwargs)
- 
     return VLMRunner(model_id, **kwargs)
 
 

@@ -52,6 +52,8 @@ def parse_args():
     #parser.add_argument("--enable_attn_checker", action="store_true", help="Check if attention maps are accessible.")
     #parser.add_argument("--max_new_tokens", type=int, default=128, help="Max new tokens for generation.")
     parser.add_argument("--dataset", type=str, default="cyc", help="Provide dataset name abbreviation: vg or cyc")
+    parser.add_argument("--json_path", type=str, default="cyc", help="Provide the filepath to your QA json.")
+    parser.add_argument("--image_path", type=str, default="cyc", help="PProvide the filepath to your image directory.")
     parser.add_argument("--save_frequency", type=int, default=5, help="Provide the frequency of saving intermediate results.")
     return parser.parse_args()
 
@@ -229,19 +231,20 @@ def main():
 
 
     runner = load_runner(args.model_name, cache_dir=CACHE, enable_attn=True)
+    print(f"Loaded runner.")
     groups = None
 
     print("Loading Dataset")
     match json_name:
         case "cyc":
             dataset_name = "COCO-rephrase" 
-            json_path  = "./Datasets/compressed/v2_OpenEnded_mscoco_valrep2014_humans_og_questions.json"
-            images_dir = "./Datasets/val2014/val2014/"
+            json_path  = args.json_path
+            images_dir = args.image_path
             groups = load_vqa_rephrasings(json_path, images_dir)
         case "vg":
             dataset_name = "VG-rephrase"
-            json_path = "./Datasets/compressed/vg_question_answers.json"
-            images_dir = "./Datasets/images/vg_100k"
+            json_path = args.json_path
+            images_dir = args.image_path
             groups = load_vg_vqa_rephrasings(json_path, images_dir) 
 
     if groups: 
