@@ -3,10 +3,10 @@ import json
 import os
 from pathlib import Path
 from collections import defaultdict
-#import for full pipeline
+#use this import or full pipeline
 from .llm_rephrasing import back_translate, gram_var_and_syn_rep
-#Import for jsut preprocessing:
-#from .llm_rephrasing import back_translate, gram_var_and_syn_rep
+#use this import for preprocessing
+#from llm_rephrasing import back_translate, gram_var_and_syn_rep
 
 
 def parse_args():
@@ -20,7 +20,7 @@ def preprocess_json(json_path, output_path):
     flattened_json = [qa for qas in data for qa in qas["qas"]]
     rephrasing_dicts = []
     
-    rephrasing_id = next_id = max([qa["qa_id"] for qa in flattened_json]) + 1
+    rephrasing_id = max([qa["qa_id"] for qa in flattened_json]) + 1
     
     for qa in flattened_json:
       rephrasings = gram_var_and_syn_rep(qa["question"], count=3) + back_translate(qa["question"], count=3)
@@ -105,10 +105,6 @@ def main():
       print(f"\nPreprocessing finished. Output saved to {args.output_json}")
     except Exception as e:
       print(f"Error during preprocessing: {e}")
-
-     
-     
-
 
 if __name__ == "__main__":
     main()

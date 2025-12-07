@@ -2,6 +2,20 @@ from transformers import pipeline
 import torch
 import gc
 
+model = None
+
+def get_pipeline():
+    
+    global model
+    if model is None:
+        model_id = "Qwen/Qwen2.5-7B-Instruct"
+        model = pipeline(
+            "text-generation",
+            model=model_id,
+            dtype="auto",
+            device_map="auto",
+        )
+    return model
 def clear_gpu_memory():
     gc.collect()
     torch.cuda.empty_cache()
@@ -13,16 +27,8 @@ def get_rephrasings(messages):
     # https://huggingface.co/openai/gpt-oss-120b
     
     clear_gpu_memory()
-    #model_id = "openai/gpt-oss-20b"
-    model_id = "Qwen/Qwen2.5-3B-Instruct"
-
-
-    pipe = pipeline(
-        "text-generation",
-        model=model_id,
-        dtype="auto",
-        device_map="auto",
-    )
+    pipe = get_pipeline()
+    
     outputs = pipe(
         messages,
         max_new_tokens=256,
@@ -40,7 +46,8 @@ def gram_var_and_syn_rep(question, count):
         {"role": "user", "content": f"You are am English grammar expert. \
          Concisely generate rephrasings of this question: {question}. \
           Make sure all rephrasings keep the same semantic meaning while varying aspects such as grammar,\
-          word order, and diction. Generate {count} rephrasings numbering them 1 through {count}"},
+          word order, and diction. Generate {count} rephrasings numbering them 1 through {count}. \
+          Return only the list of questions, no other text."},
     ]
     rephrasings = get_rephrasings(messages)
 
@@ -54,7 +61,8 @@ def back_translate(question, count):
         {"role": "user", "content": f"You are an expert in English to German translations. \
          Concisely generate a translation of this question: {question}. \
           Make the translation keeps the same semantic meaning."
-          "Generate a single translation"},
+          "Generate a single translation. \
+          Return only the translation, no other text."},
     ]
     forward_translation = get_rephrasings(forward_messages)
     translated_question = forward_translation.get("content")
@@ -68,5 +76,4 @@ def back_translate(question, count):
     ]
 
     backward_translations = get_rephrasings(backward_messages)
-    print(backward_translations)
     return parse_rephrasings(backward_translations.get("content"))

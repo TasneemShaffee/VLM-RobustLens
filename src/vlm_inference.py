@@ -1,4 +1,3 @@
-
 import os
 
 from abc import ABC
@@ -36,7 +35,7 @@ def _pilify(im):
 
 class VLMRunner(ABC):
     supports_template_packs_images: bool = False  
-
+    print("in vlm runner class -- before init")
     def __init__(
         self,
         model_id: str,
@@ -56,7 +55,8 @@ class VLMRunner(ABC):
         self.device_map = device_map
         self.torch_dtype = torch_dtype or _dtype()
         self.enable_attn = enable_attn
-
+        
+        
         if cache_dir:
             os.environ.setdefault("HF_HOME", cache_dir)
 
@@ -87,15 +87,22 @@ class VLMRunner(ABC):
             token=self.hf_token,
             tokenizer=self.tokenizer,
         )
-      
+       
         try:
+            print("trying model")
             self.model = AutoModelForImageTextToText.from_pretrained(self.model_id, **self.common)
+            print("model try succeeded")
         except Exception:
+            print("backup")
             self.model = AutoModelForCausalLM.from_pretrained(self.model_id, **self.common)
+            print("backup succeeded")
+        
         self.model.eval()
         self.device = next(self.model.parameters()).device
+       
 
     def _pack_inputs(self, images, text) -> Dict[str, Any]:
+       
         msgs = self._messages(images, text)
         if self.supports_template_packs_images:
            
@@ -117,7 +124,7 @@ class VLMRunner(ABC):
         #return self.processor(text=[prompt], images=pil_imgs or None, return_tensors="pt",return_mm_token_type_ids=True)
         return self.processor(text=[prompt], images=pil_imgs or None, return_tensors="pt")
     def build_tokenizer(self, model_id: str):
-       
+        
         return AutoTokenizer.from_pretrained(
             model_id, cache_dir=self.cache_dir, trust_remote_code=self.trust_remote_code
         )
@@ -158,7 +165,6 @@ class VLMRunner(ABC):
                 else:
                     trimmed = out_ids
                 return self.processor.batch_decode(trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False)
-          
             return self.model(**inputs, output_attentions=self.enable_attn, return_dict=True, use_cache=False)
 
 
@@ -166,79 +172,6 @@ class VLMRunner(ABC):
 
 class Qwen3VLRunner(VLMRunner):
     supports_template_packs_images = True
-  
-
-def run_onepass(
-    self,
-    images: Union[str, Image.Image, List[Union[str, Image.Image]]],
-    text: str,
-):
-    # 1) preprocess images -> pixel_values, num_patches_list (you already do this)
-    if isinstance(images, (str, Image.Image)):
-        images = [images]
-
-    all_tiles, num_patches_list = [], []
-    transform = self.build_transform(self.image_size)
-    for im in images:
-        pil = self._pilify(im)
-        tiles = self.dynamic_preprocess(
-            pil,
-            image_size=self.image_size,
-            use_thumbnail=True,
-            max_num=self.max_num,
-        )
-        num_patches_list.append(len(tiles))
-        pv = torch.stack([transform(t) for t in tiles])
-        all_tiles.append(pv)
-
-    pixel_values = torch.cat(all_tiles, dim=0).to(self.device, dtype=torch.bfloat16)
-
-    # 2) build query using the same template logic as `chat`
-    question = text
-    if pixel_values is not None and '<image>' not in question:
-        question = '<image>\n' + question
-
-    template = self.model.conv_template  # or get_conv_template(self.model.template)
-    template = template.copy() if hasattr(template, "copy") else template
-    template.system_message = self.model.system_message
-    template.append_message(template.roles[0], question)
-    template.append_message(template.roles[1], None)
-    query = template.get_prompt()
-
-    IMG_START_TOKEN = '<img>'
-    IMG_END_TOKEN = '</img>'
-    IMG_CONTEXT_TOKEN = '<IMG_CONTEXT>'
-
-    # set img_context_token_id, like chat/batch_chat do
-    self.model.img_context_token_id = self.tokenizer.convert_tokens_to_ids(IMG_CONTEXT_TOKEN)
-
-    # insert image context tokens
-    for num_patches in num_patches_list:
-        image_tokens = IMG_START_TOKEN + IMG_CONTEXT_TOKEN * self.model.num_image_token * num_patches + IMG_END_TOKEN
-        query = query.replace('<image>', image_tokens, 1)
-
-    # 3) tokenize
-    model_inputs = self.tokenizer(query, return_tensors='pt')
-    input_ids = model_inputs['input_ids'].to(self.device)
-    attention_mask = model_inputs['attention_mask'].to(self.device)
-
-    # 4) simple image_flags: mark all images as used
-    # shape [batch, 1] if you have one sequence here
-    image_flags = torch.ones(pixel_values.shape[0], 1, dtype=torch.bool, device=self.device)
-
-    # 5) ONE FORWARD PASS with attentions
-    with torch.no_grad():
-        outputs = self.model(
-            pixel_values=pixel_values,
-            input_ids=input_ids,
-            attention_mask=attention_mask,
-            image_flags=image_flags,
-            output_attentions=True,
-            use_cache=False,
-            return_dict=True,
-        )
-
-    return outputs
 class InternVLRunner(VLMRunner):
     
     supports_template_packs_images = False 
@@ -560,6 +493,7 @@ def load_runner(name: str, *, model_id: Optional[str] = None, **kwargs) -> VLMRu
     if key.startswith("intern"): return InternVLRunner(model_id, **kwargs)
     if key.startswith("gemma"):  return Gemma3Runner(model_id, **kwargs)
     if key.startswith("cog"):    return CogVLMRunner(model_id, **kwargs)
+ 
     return VLMRunner(model_id, **kwargs)
 
 
