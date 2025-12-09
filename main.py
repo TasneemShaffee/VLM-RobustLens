@@ -5,6 +5,8 @@ from dataset import *
 
 import os
 import torch
+#from src.attn_spy import init_attention_spy, ATTMAPS
+#ATTMAPS = init_attention_spy()
 import argparse
 from src import *
 
@@ -12,8 +14,8 @@ from metrics import *
 import json
 from itertools import islice
 import random
-from utility import _image_exists, set_text_layers_eager, attach_attention_hooks, detach_hooks, clear_attn_buffers, _agg_rows, _group_by_type, _mean_or_nan, _atomic_write_json
-def process_batch(groups,runner):
+from utility import _image_exists, set_text_layers_eager, attach_attention_hooks, detach_hooks, _agg_rows, _group_by_type, _mean_or_nan, _atomic_write_json
+def process_batch(groups,runner,skip_vision=False):
     all_rows = []
     for gid, grp in groups.items():
         img = grp["image"]
@@ -29,7 +31,7 @@ def process_batch(groups,runner):
         _ = runner.run(img, qB, do_generate=False)
         mB = snapshot()
 
-        rows = compare_attention_runs(mA, mB)
+        rows = compare_attention_runs(mA, mB, skip_vision=skip_vision)
         for r in rows:
             r["group_id"] = gid
             r["image_id"] = grp["image_id"]
@@ -43,12 +45,15 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Run attention probe with arguments.")
     parser.add_argument("--cache_dir", type=str, required=True, help="Path to cache directory.")
     parser.add_argument("--model_name", type=str, required=True, choices=["gemma3", "qwen3vl", "internvl"],help="Model name to load.")
-    #parser.add_argument("--img_url", type=str, required=True, help="URL of the input image.")
+    #parser.add_argument("--img_url", t                  ype=str, required=True, help="URL of the input image.")
     #parser.add_argument("--text", type=str, required=True, help="Prompt text.")
     #parser.add_argument("--enable_attn", action="store_true", help="Enable attention capture.")
     #parser.add_argument("--do_generate", action="store_true", help="Generate output text.")
     #parser.add_argument("--enable_attn_checker", action="store_true", help="Check if attention maps are accessible.")
     #parser.add_argument("--max_new_tokens", type=int, default=128, help="Max new tokens for generation.")
+    parser.add_argument("--dataset", type=str, default="cyc", help="Provide dataset name abbreviation: vg or cyc")
+    parser.add_argument("--json_path", type=str, default="cyc", help="Provide the filepath to your QA json.")
+    parser.add_argument("--image_path", type=str, default="cyc", help="PProvide the filepath to your image directory.")
     parser.add_argument("--save_frequency", type=int, default=5, help="Provide the frequency of saving intermediate results.")
     return parser.parse_args()
 
@@ -101,7 +106,7 @@ from collections import defaultdict
 
 
 
-def process_dataset(runner, groups, *, model_name, dataset_name, out_json_path,save_frequency=5,max_images=None,sample_mode="first",seed=0):
+def process_dataset(runner, groups, *, model_name, dataset_name, out_json_path,save_frequency=5,max_images=None,sample_mode="first",seed=0,skip_vision=False):
   
     set_text_layers_eager(runner.model, model_name)
 
@@ -167,7 +172,7 @@ def process_dataset(runner, groups, *, model_name, dataset_name, out_json_path,s
                 #print(f"  Packaging attention maps done.")
                 clear_attn_buffers()
                 #print(f"  Comparing attention runs...")
-                rows = compare_attention_runs(maps_A, maps_B) 
+                rows = compare_attention_runs(maps_A, maps_B,skip_vision=skip_vision) 
                 #print(f"  Comparison done. Results:")
                 #print_results(rows, top=10)
                 per_image_pairs[f"q0|q{idx}"] = rows
@@ -221,19 +226,32 @@ def process_dataset(runner, groups, *, model_name, dataset_name, out_json_path,s
 def main():
     args = parse_args()
     CACHE = args.cache_dir
-    dataset_name = "COCO-rephrase"  
+    dataset_name = "" 
+    json_name = args.dataset
+
 
     runner = load_runner(args.model_name, cache_dir=CACHE, enable_attn=True)
-
-    json_path  = "../Datasets/compressed/v2_OpenEnded_mscoco_valrep2014_humans_og_questions.json"
-    images_dir = "../Datasets/val2014/"
+    print(f"Loaded runner.")
+    groups = None
 
     print("Loading Dataset")
+    match json_name:
+        case "cyc":
+            dataset_name = "COCO-rephrase" 
+            json_path  = args.json_path
+            images_dir = args.image_path
+            groups = load_vqa_rephrasings(json_path, images_dir)
+        case "vg":
+            dataset_name = "VG-rephrase"
+            json_path = args.json_path
+            images_dir = args.image_path
+            groups = load_vg_vqa_rephrasings(json_path, images_dir) 
 
-    groups = load_vqa_rephrasings(json_path, images_dir)
-
-    print("Done Loading Dataset")
-
+    if groups: 
+        print("Done Loading Dataset") 
+    else: 
+        print("Error Loading Dataset")
+        return
     out_json = os.path.join("experiments", dataset_name, args.model_name, "metrics_and_summaries.json")
     process_dataset(runner, groups,
                     model_name=args.model_name,
@@ -242,7 +260,8 @@ def main():
                     save_frequency=args.save_frequency,
                     max_images=10000,          
                     sample_mode="first",       
-                    seed=0)
-
+                    seed=0,
+                    skip_vision=False                    
+                    )
 if __name__ == "__main__":
     main()
