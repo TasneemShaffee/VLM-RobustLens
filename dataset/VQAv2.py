@@ -14,10 +14,7 @@
 """VQA v2 loading script."""
 
 
-import csv
 import json
-from multiprocessing.sharedctypes import Value
-import os
 from pathlib import Path
 import datasets
 
@@ -118,21 +115,23 @@ class VQAv2Dataset(datasets.GeneratorBasedBuilder):
         data_dir = dl_manager.download_and_extract(_URLS)
         gen_kwargs = {
             split_name: {
-                f"{dir_name}_path": Path(data_dir[dir_name][split_name])
-                / _SUB_FOLDER_OR_FILE_NAME[dir_name][split_name]
-                if split_name in data_dir[dir_name]
-                else None
+                f"{dir_name}_path": (
+                    Path(data_dir[dir_name][split_name])  # type: ignore
+                    / _SUB_FOLDER_OR_FILE_NAME[dir_name][split_name]
+                    if split_name in data_dir[dir_name]  # type: ignore
+                    else None
+                )
                 for dir_name in _URLS.keys()
             }
             for split_name in ["train", "val", "test-dev", "test"]
         }
         return [
             datasets.SplitGenerator(
-                name=datasets.Split.TRAIN,
+                name=datasets.Split.TRAIN,  # type: ignore
                 gen_kwargs=gen_kwargs["train"],
             ),
             datasets.SplitGenerator(
-                name=datasets.Split.VALIDATION,
+                name=datasets.Split.VALIDATION,  # type: ignore
                 gen_kwargs=gen_kwargs["val"],
             ),
             datasets.SplitGenerator(
@@ -140,12 +139,12 @@ class VQAv2Dataset(datasets.GeneratorBasedBuilder):
                 gen_kwargs=gen_kwargs["test-dev"],
             ),
             datasets.SplitGenerator(
-                name=datasets.Split.TEST,
+                name=datasets.Split.TEST,  # type: ignore
                 gen_kwargs=gen_kwargs["test"],
             ),
         ]
 
-    def _generate_examples(self, questions_path, annotations_path, images_path):
+    def _generate_examples(self, questions_path, annotations_path, images_path):  # type: ignore
         questions = json.load(open(questions_path, "r"))
 
         if annotations_path is not None:
@@ -158,10 +157,16 @@ class VQAv2Dataset(datasets.GeneratorBasedBuilder):
             for question in questions["questions"]:
                 annotation = qa[question["question_id"]]
                 # some checks
-                assert len(set(question.keys()) ^ set(["image_id", "question", "question_id"])) == 0
                 assert (
                     len(
-                        set(annotation.keys())
+                        set(question.keys())
+                        ^ set(["image_id", "question", "question_id"])
+                    )
+                    == 0
+                )
+                assert (
+                    len(
+                        set(annotation.keys())  # type: ignore
                         ^ set(
                             [
                                 "question_type",
@@ -177,7 +182,10 @@ class VQAv2Dataset(datasets.GeneratorBasedBuilder):
                 )
                 record = question
                 record.update(annotation)
-                record["image"] = str(images_path / f"COCO_{images_path.name}_{record['image_id']:0>12}.jpg")
+                record["image"] = str(
+                    images_path
+                    / f"COCO_{images_path.name}_{record['image_id']:0>12}.jpg"
+                )
                 yield question["question_id"], record
         else:
             # No annotations for the test split
@@ -190,5 +198,8 @@ class VQAv2Dataset(datasets.GeneratorBasedBuilder):
                         "answer_type": None,
                     }
                 )
-                question["image"] = str(images_path / f"COCO_{images_path.name}_{question['image_id']:0>12}.jpg")
+                question["image"] = str(
+                    images_path
+                    / f"COCO_{images_path.name}_{question['image_id']:0>12}.jpg"
+                )
                 yield question["question_id"], question
