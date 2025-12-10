@@ -4,7 +4,7 @@ from pathlib import Path
 from collections import defaultdict
 
 # use this import or full pipeline
-from .llm_rephrasing import back_translate, gram_var_and_syn_rep
+from llm_rephrasing import back_translate, gram_var_and_syn_rep
 
 # use this import for preprocessing
 # from llm_rephrasing import back_translate, gram_var_and_syn_rep

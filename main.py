@@ -35,17 +35,12 @@ def parse_args():
         default="cyc",
         help="Provide dataset name abbreviation: vg or cyc",
     )
-
-    # (ie. "./Datasets/compressed/v2_OpenEnded_mscoco_valrep2014_humans_og_questions.json")
     parser.add_argument(
         "--json_path",
         type=str,
         required=True,
         help="Provide the filepath to your QA json.",
     )
-
-    # (ie. "./Datasets/val2014/")
-    # (ie. )
     parser.add_argument(
         "--image_path",
         type=str,
@@ -58,6 +53,7 @@ def parse_args():
         default=5,
         help="Provide the frequency of saving intermediate results.",
     )
+
     return parser.parse_args()
 
 
