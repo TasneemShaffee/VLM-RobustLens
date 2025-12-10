@@ -29,31 +29,28 @@ def parse_args():
         choices=["gemma3", "qwen3vl", "internvl"],
         help="Model name to load.",
     )
-
-    # parser.add_argument("--img_url", t                  ype=str, required=True, help="URL of the input image.")
-    # parser.add_argument("--text", type=str, required=True, help="Prompt text.")
-    # parser.add_argument("--enable_attn", action="store_true", help="Enable attention capture.")
-    # parser.add_argument("--do_generate", action="store_true", help="Generate output text.")
-    # parser.add_argument("--enable_attn_checker", action="store_true", help="Check if attention maps are accessible.")
-    # parser.add_argument("--max_new_tokens", type=int, default=128, help="Max new tokens for generation.")
-
     parser.add_argument(
         "--dataset",
         type=str,
         default="cyc",
         help="Provide dataset name abbreviation: vg or cyc",
     )
+
+    # (ie. "./Datasets/compressed/v2_OpenEnded_mscoco_valrep2014_humans_og_questions.json")
     parser.add_argument(
         "--json_path",
         type=str,
-        default="cyc",
+        required=True,
         help="Provide the filepath to your QA json.",
     )
+
+    # (ie. "./Datasets/val2014/")
+    # (ie. )
     parser.add_argument(
         "--image_path",
         type=str,
-        default="cyc",
-        help="PProvide the filepath to your image directory.",
+        required=True,
+        help="Provide the filepath to your image directory.",
     )
     parser.add_argument(
         "--save_frequency",
@@ -195,14 +192,14 @@ def main():
     args = parse_args()
     CACHE = args.cache_dir
     dataset_name = ""
-    json_name = args.dataset
+    dataset = args.dataset
 
     runner = load_runner(args.model_name, cache_dir=CACHE, enable_attn=True)
     print(f"Loaded runner.")
 
     print("Loading Dataset")
     groups = None
-    match json_name:
+    match dataset:
         case "cyc":
             dataset_name = "COCO-rephrase"
             json_path = args.json_path
