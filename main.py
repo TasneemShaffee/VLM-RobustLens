@@ -18,12 +18,6 @@ from utility import (
 
 
 def _image_exists(img_path: str) -> bool:
-    if not isinstance(img_path, str) or img_path.startswith(("http://", "https://")):
-        return True
-
-    if not os.path.isfile(img_path):
-        return False
-
     try:
         with Image.open(img_path) as im:
             im.verify()
@@ -33,7 +27,7 @@ def _image_exists(img_path: str) -> bool:
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Run attention probe with arguments.")
+    parser = argparse.ArgumentParser()
     parser.add_argument(
         "--cache_dir", type=str, required=True, help="Path to cache directory."
     )
@@ -42,31 +36,45 @@ def parse_args():
         type=str,
         required=True,
         choices=["gemma3", "qwen3vl", "internvl"],
-        help="Model name to load.",
+        help="Tmodel name to load",
     )
     parser.add_argument(
         "--dataset",
         type=str,
-        default="cyc",
-        help="Provide dataset name abbreviation: vg or cyc",
+        required=True,
+        choices=["vg", "cyc"],
+        help="The dataset name",
     )
     parser.add_argument(
         "--json_path",
         type=str,
         required=True,
-        help="Provide the filepath to your QA json.",
+        help="The filepath to your QA json.",
     )
     parser.add_argument(
         "--image_path",
         type=str,
         required=True,
-        help="Provide the filepath to your image directory.",
+        help="The filepath to your image directory.",
     )
     parser.add_argument(
         "--save_frequency",
         type=int,
         default=5,
-        help="Provide the frequency of saving intermediate results.",
+        help="The frequency for saving intermediate results.",
+    )
+    parser.add_argument(
+        "--max_images",
+        type=int,
+        default=10000,
+        help="The maximum number of images to run.",
+    )
+    parser.add_argument(
+        "--sample_mode",
+        type=str,
+        default="first",
+        choices=["first", "random"],
+        help="The sampling mode.",
     )
 
     return parser.parse_args()
@@ -113,26 +121,26 @@ def process_dataset(
             else:
                 iter_items = islice(groups.items(), max_images)
 
-        print(iter_items[..8])  # type: ignore
-
         for gid, grp in iter_items:  # type: ignore
             img_path = grp["image"]
-            image_id = grp.get("image_id", gid)
-            print(
-                f"Processing image_id={image_id} from group_id={gid}... img_path={img_path}"
-            )
+            image_id = grp["image_id"]
+
             questions = grp.get("questions", [])
             if not _image_exists(img_path):
                 print(f"[SKIP] Missing/corrupted image: {img_path}")
                 skipped_missing += 1
                 continue
+
             if not questions:
                 continue
+
             q0 = questions[0]
             paraphrases = questions[1:] if len(questions) > 1 else []
 
             if not paraphrases:
                 continue
+
+            print(f"Processing image #{image_id}")
 
             clear_attn_buffers()
             _ = runner.run(img_path, q0, do_generate=False)
@@ -207,10 +215,10 @@ def main():
     dataset_name = ""
     dataset = args.dataset
 
+    print(f"Loadeding runner...")
     runner = load_runner(args.model_name, cache_dir=CACHE, enable_attn=True)
-    print(f"Loaded runner.")
 
-    print("Loading Dataset")
+    print("Loading Dataset...")
     groups = None
     match dataset:
         case "cyc":
@@ -227,8 +235,7 @@ def main():
     if groups:
         print("Done Loading Dataset")
     else:
-        print("Error Loading Dataset")
-        return
+        raise RuntimeError("Failed to load dataset")
 
     out_json = os.path.join(
         "experiments", dataset_name, args.model_name, "metrics_and_summaries.json"
@@ -241,7 +248,7 @@ def main():
         dataset_name=dataset_name,
         out_json_path=out_json,
         save_frequency=args.save_frequency,
-        max_images=10000,
+        max_images=int(args.max_images),
         sample_mode="first",
         seed=0,
         skip_vision=False,
