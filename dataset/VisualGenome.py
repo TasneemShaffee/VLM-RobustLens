@@ -4,10 +4,10 @@ from pathlib import Path
 from collections import defaultdict
 
 # use this import or full pipeline
-from llm_rephrasing import back_translate, gram_var_and_syn_rep
+# from .llm_rephrasing import back_translate, gram_var_and_syn_rep
 
 # use this import for preprocessing
-# from llm_rephrasing import back_translate, gram_var_and_syn_rep
+from llm_rephrasing import back_translate, gram_var_and_syn_rep
 
 
 def parse_args():
@@ -87,7 +87,7 @@ def load_vg_vqa_rephrasings(json_path, images_dir):
     rows = []
     for qa in data["qas"]:
         image_id = qa["image_id"]
-        group_id = qa.get("rephrasing_of", "qa_id")
+        group_id = qa.get("rephrasing_of", qa["qa_id"])
         image_file = Path(images_dir) / f"{image_id}.jpg"
         rows.append(
             {

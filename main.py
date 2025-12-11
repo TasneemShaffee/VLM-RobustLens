@@ -6,8 +6,8 @@ from dataset import *
 from itertools import islice
 from metrics import *
 from src import *
+from PIL import Image
 from utility import (
-    _image_exists,
     set_text_layers_eager,
     attach_attention_hooks,
     detach_hooks,
@@ -15,6 +15,21 @@ from utility import (
     _group_by_type,
     _atomic_write_json,
 )
+
+
+def _image_exists(img_path: str) -> bool:
+    if not isinstance(img_path, str) or img_path.startswith(("http://", "https://")):
+        return True
+
+    if not os.path.isfile(img_path):
+        return False
+
+    try:
+        with Image.open(img_path) as im:
+            im.verify()
+        return True
+    except Exception:
+        return False
 
 
 def parse_args():
