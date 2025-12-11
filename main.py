@@ -113,6 +113,8 @@ def process_dataset(
             else:
                 iter_items = islice(groups.items(), max_images)
 
+        print(iter_items[..8])  # type: ignore
+
         for gid, grp in iter_items:  # type: ignore
             img_path = grp["image"]
             image_id = grp.get("image_id", gid)
