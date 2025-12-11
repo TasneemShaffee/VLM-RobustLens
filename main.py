@@ -94,7 +94,7 @@ def process_dataset(
     dataset_name,
     out_json_path,
     save_frequency=5,
-    max_images=None,
+    max_images=10000,
     sample_mode="first",
     seed=0,
     skip_vision=False,
@@ -115,17 +115,16 @@ def process_dataset(
 
         all_rows_all_images = []
         skipped_missing = 0
-        if max_images is not None:
-            if sample_mode == "random":
-                rng = random.seed(seed)
-                keys = list(groups.keys())
-                if max_images > len(keys):
-                    selected_ids = keys
-                else:
-                    selected_ids = rng.sample(keys, max_images)  # type: ignore
-                iter_items = ((gid, groups[gid]) for gid in selected_ids)
+        if sample_mode == "random":
+            rng = random.seed(seed)
+            keys = list(groups.keys())
+            if max_images > len(keys):
+                selected_ids = keys
             else:
-                iter_items = islice(groups.items(), max_images)
+                selected_ids = rng.sample(keys, max_images)  # type: ignore
+            iter_items = ((gid, groups[gid]) for gid in selected_ids)
+        else:
+            iter_items = islice(groups.items(), max_images)
 
         for gid, grp in iter_items:  # type: ignore
             img_path = grp["image"]
