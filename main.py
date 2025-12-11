@@ -72,7 +72,7 @@ def parse_args():
     parser.add_argument(
         "--max_images",
         type=int,
-        default=10000,
+        default=8192,
         help="The maximum number of images to run.",
     )
     parser.add_argument(
@@ -94,7 +94,7 @@ def process_dataset(
     dataset_name,
     out_json_path,
     save_frequency=5,
-    max_images=10000,
+    max_images=8192,
     sample_mode="first",
     seed=0,
     skip_vision=False,
@@ -220,7 +220,7 @@ def main():
     dataset_name = ""
     dataset = args.dataset
 
-    print(f"Loadeding runner...")
+    print(f"Loading runner...")
     runner = load_runner(args.model_name, cache_dir=CACHE, enable_attn=True)
 
     print("Loading Dataset...")
