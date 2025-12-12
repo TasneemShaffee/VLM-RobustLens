@@ -50,6 +50,13 @@ def parse_args():
     parser.add_argument("--json_path", type=str, default="cyc", help="Provide the filepath to your QA json.")
     parser.add_argument("--image_path", type=str, default="cyc", help="PProvide the filepath to your image directory.")
     parser.add_argument("--save_frequency", type=int, default=5, help="Provide the frequency of saving intermediate results.")
+    parser.add_argument(
+        "--attn_mode",
+        choices=["full", "blocks"],
+        default="full",
+        help="How to package attention before metric comparison: "
+             "'full' = original full matrices, 'blocks' = text/vision blocks (t2t, t2v, v2t, v2v)."
+    )
     return parser.parse_args()
 
 
@@ -223,10 +230,11 @@ def main():
                     dataset_name=dataset_name,
                     out_json_path=out_json,
                     save_frequency=args.save_frequency,
-                    max_images=10000,          
+                    max_images=600,          
                     sample_mode="first",       
                     seed=0,
-                    skip_vision=False                    
+                    skip_vision=False,
+                    attn_mode=args.attn_mode,                    
                     )
 if __name__ == "__main__":
     main()
