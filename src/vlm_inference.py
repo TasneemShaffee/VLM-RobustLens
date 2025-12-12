@@ -56,6 +56,11 @@ class VLMRunner(ABC):
         self.device_map = device_map
         self.torch_dtype = torch_dtype or _dtype()
         self.enable_attn = enable_attn
+        
+        self.last_input_ids = None
+        self.last_text_mask = None
+        self.last_vision_mask = None
+        self.image_grid_thw=None
 
         if cache_dir:
             os.environ.setdefault("HF_HOME", cache_dir)
@@ -101,11 +106,11 @@ class VLMRunner(ABC):
            
             return self.processor.apply_chat_template(
                 msgs, tokenize=True, add_generation_prompt=True,
-                return_tensors="pt", return_dict=True
+                return_tensors="pt", return_dict=True, return_mm_token_type_ids=True, 
             )
       
         prompt = self.processor.apply_chat_template(
-            msgs, tokenize=False, add_generation_prompt=True
+            msgs, tokenize=False, add_generation_prompt=True,
         )
        
         pil_imgs = []
@@ -114,8 +119,8 @@ class VLMRunner(ABC):
                 pil_imgs.append(im)
             elif isinstance(im, str) and not im.startswith("http"):
                 pil_imgs.append(Image.open(im).convert("RGB"))
-        #return self.processor(text=[prompt], images=pil_imgs or None, return_tensors="pt",return_mm_token_type_ids=True)
-        return self.processor(text=[prompt], images=pil_imgs or None, return_tensors="pt")
+        return self.processor(text=[prompt], images=pil_imgs or None, return_tensors="pt",return_mm_token_type_ids=True)
+        #return self.processor(text=[prompt], images=pil_imgs or None, return_tensors="pt")
     def build_tokenizer(self, model_id: str):
        
         return AutoTokenizer.from_pretrained(
@@ -128,7 +133,7 @@ class VLMRunner(ABC):
         content.append({"type": "text", "text": text})
         return [{"role": "user", "content": content}]
 
-    def _pack(self, images, text) -> Dict[str, Any]:
+    """def _pack(self, images, text) -> Dict[str, Any]:
         msgs = self._messages(images, text)
         if self.supports_template_packs_images:
             return self.processor.apply_chat_template(
@@ -140,19 +145,86 @@ class VLMRunner(ABC):
             msgs, tokenize=False, add_generation_prompt=True
         )
         pil_images = [x for x in map(_pilify, images) if isinstance(x, Image.Image)]
-        return self.processor(text=[prompt], images=pil_images or None, return_tensors="pt")
+        return self.processor(text=[prompt], images=pil_images or None, return_tensors="pt")"""
+
+    def _pack(self, images, text) -> Dict[str, Any]:
+        msgs = self._messages(images, text)
+
+       
+        prompt = self.processor.apply_chat_template(
+        msgs,
+        tokenize=False,
+        add_generation_prompt=True,
+        )
+
+
+        pil_images = [x for x in map(_pilify, images) if isinstance(x, Image.Image)]
+
+
+        batch = self.processor(
+        text=[prompt],
+        images=pil_images or None,
+        return_tensors="pt",
+        return_mm_token_type_ids=True,  
+        )
+        return batch    
 
     def run(self, images: Union[str, Image.Image, List[Union[str, Image.Image]]], text: str,
             *, do_generate=False, gen_kwargs: Optional[Dict[str, Any]] = None):
         images = _to_list(images)
         inputs = self._pack(images, text)
+
+        ##### text and vision token masks
+        self.last_input_ids = inputs.get("input_ids", None)
+        self.image_grid_thw=inputs.get("image_grid_thw", None)
+        #print ("inputs ",inputs)
+        mm = inputs.get("mm_token_type_ids", None)  
+        #print ("mm_token_type_ids ",mm)
+
+
+        if mm is None:
+            mm = inputs.get("token_type_ids", None)
+            #print("token_type_ids ", mm)
+
+        if mm is not None:
+            if not torch.is_tensor(mm):
+                mm = torch.tensor(mm)
+
+            # For both Qwen3-VL and Gemma:
+            # 1 = vision/image tokens, 0 = text tokens
+            self.last_vision_mask = (mm == 1)
+            self.last_text_mask   = (mm == 0)
+
+            #print("vision tokens:", self.last_vision_mask.sum().item(), "text tokens:", self.last_text_mask.sum().item())
+        else:
+            # all tokens are text, no vision tokens
+            if self.last_input_ids is not None:
+                self.last_text_mask   = torch.ones_like(self.last_input_ids, dtype=torch.bool)
+                self.last_vision_mask = torch.zeros_like(self.last_input_ids, dtype=torch.bool)
+            else:
+                self.last_text_mask = None
+                self.last_vision_mask = None
+           
+        if self.last_input_ids is not None:
+            self.last_input_ids = self.last_input_ids.to(self.device)
+        if self.last_text_mask is not None:
+            self.last_text_mask = self.last_text_mask.to(self.device)
+        if self.last_vision_mask is not None:
+            self.last_vision_mask = self.last_vision_mask.to(self.device)
+        #print("self.last_text_mask  ",self.last_text_mask )
+
         for k, v in list(inputs.items()):
             if torch.is_tensor(v): inputs[k] = v.to(self.device)
 
         with torch.no_grad():
             if do_generate:
                 gen_kwargs = gen_kwargs or {}
-                out_ids = self.model.generate(**inputs, **gen_kwargs)
+                
+                
+                gen_inputs = dict(inputs)
+                gen_inputs.pop("mm_token_type_ids", None)
+              
+                out_ids = self.model.generate(**gen_inputs, **gen_kwargs)
                 if "input_ids" in inputs:
                     trimmed = [o[len(i):] for i, o in zip(inputs["input_ids"], out_ids)]
                 else:
@@ -168,77 +240,6 @@ class Qwen3VLRunner(VLMRunner):
     supports_template_packs_images = True
   
 
-def run_onepass(
-    self,
-    images: Union[str, Image.Image, List[Union[str, Image.Image]]],
-    text: str,
-):
-    # 1) preprocess images -> pixel_values, num_patches_list (you already do this)
-    if isinstance(images, (str, Image.Image)):
-        images = [images]
-
-    all_tiles, num_patches_list = [], []
-    transform = self.build_transform(self.image_size)
-    for im in images:
-        pil = self._pilify(im)
-        tiles = self.dynamic_preprocess(
-            pil,
-            image_size=self.image_size,
-            use_thumbnail=True,
-            max_num=self.max_num,
-        )
-        num_patches_list.append(len(tiles))
-        pv = torch.stack([transform(t) for t in tiles])
-        all_tiles.append(pv)
-
-    pixel_values = torch.cat(all_tiles, dim=0).to(self.device, dtype=torch.bfloat16)
-
-    # 2) build query using the same template logic as `chat`
-    question = text
-    if pixel_values is not None and '<image>' not in question:
-        question = '<image>\n' + question
-
-    template = self.model.conv_template  # or get_conv_template(self.model.template)
-    template = template.copy() if hasattr(template, "copy") else template
-    template.system_message = self.model.system_message
-    template.append_message(template.roles[0], question)
-    template.append_message(template.roles[1], None)
-    query = template.get_prompt()
-
-    IMG_START_TOKEN = '<img>'
-    IMG_END_TOKEN = '</img>'
-    IMG_CONTEXT_TOKEN = '<IMG_CONTEXT>'
-
-    # set img_context_token_id, like chat/batch_chat do
-    self.model.img_context_token_id = self.tokenizer.convert_tokens_to_ids(IMG_CONTEXT_TOKEN)
-
-    # insert image context tokens
-    for num_patches in num_patches_list:
-        image_tokens = IMG_START_TOKEN + IMG_CONTEXT_TOKEN * self.model.num_image_token * num_patches + IMG_END_TOKEN
-        query = query.replace('<image>', image_tokens, 1)
-
-    # 3) tokenize
-    model_inputs = self.tokenizer(query, return_tensors='pt')
-    input_ids = model_inputs['input_ids'].to(self.device)
-    attention_mask = model_inputs['attention_mask'].to(self.device)
-
-    # 4) simple image_flags: mark all images as used
-    # shape [batch, 1] if you have one sequence here
-    image_flags = torch.ones(pixel_values.shape[0], 1, dtype=torch.bool, device=self.device)
-
-    # 5) ONE FORWARD PASS with attentions
-    with torch.no_grad():
-        outputs = self.model(
-            pixel_values=pixel_values,
-            input_ids=input_ids,
-            attention_mask=attention_mask,
-            image_flags=image_flags,
-            output_attentions=True,
-            use_cache=False,
-            return_dict=True,
-        )
-
-    return outputs
 class InternVLRunner(VLMRunner):
     
     supports_template_packs_images = False 
@@ -249,7 +250,7 @@ class InternVLRunner(VLMRunner):
         self.model =  AutoModel.from_pretrained(self.model_id, **self.common)
         self.model.eval()
         self.device = next(self.model.parameters()).device
-        self.image_size= 336 #448 
+        self.image_size=  336 #448 
         self.max_num= 4 #12
     def _pilify(self,x):
     
@@ -374,7 +375,13 @@ class InternVLRunner(VLMRunner):
 
 
         image_flags = torch.ones(pixel_values.shape[0], 1, dtype=torch.bool, device=self.device)
-
+        #####
+        img_ctx_id = self.model.img_context_token_id
+        vision_mask = (input_ids == img_ctx_id) 
+        text_mask = ~vision_mask 
+        self.last_input_ids = input_ids
+        self.last_text_mask = text_mask
+        self.last_vision_mask = vision_mask
   
         with torch.no_grad():
             outputs = self.model(

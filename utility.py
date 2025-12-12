@@ -109,8 +109,12 @@ def attach_attention_hooks(runner, model_name=None):
         t_attn = getattr(layer, "self_attn", None) or getattr(layer, "attn", None) or getattr(layer, "attention", None)
         if t_attn is not None:
             if name == "internvl":
-                  hooks.append(t_attn.register_forward_hook(_internvl_text_attn_hook, with_kwargs=True))
-            else: hooks.append(t_attn.register_forward_hook(_text_attn_hook, with_kwargs=True))
+                  hook_fn = make_internvl_text_attn_hook(runner)
+                  hooks.append(t_attn.register_forward_hook(hook_fn, with_kwargs=True))
+            else:
+                hook_fn = make_text_attn_hook(runner)
+                hooks.append(t_attn.register_forward_hook(hook_fn, with_kwargs=True)) 
+                #hooks.append(t_attn.register_forward_hook(_text_attn_hook, with_kwargs=True))
 
     # -------- VISION LAYERS --------
     if name == "internvl":

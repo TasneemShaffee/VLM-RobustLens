@@ -15,32 +15,9 @@ import json
 from itertools import islice
 import random
 from utility import _image_exists, set_text_layers_eager, attach_attention_hooks, detach_hooks, _agg_rows, _group_by_type, _mean_or_nan, _atomic_write_json
-def process_batch(groups,runner,skip_vision=False):
-    all_rows = []
-    for gid, grp in groups.items():
-        img = grp["image"]
-        qs = grp["questions"]
-        if len(qs) < 2: continue
-        qA, qB = qs[0], qs[1]
+import os, json, math, statistics as stats
+from collections import defaultdict
 
-        clear_attn()
-        _ = runner.run(img, qA, do_generate=False)
-        mA = snapshot()
-
-        clear_attn()
-        _ = runner.run(img, qB, do_generate=False)
-        mB = snapshot()
-
-        rows = compare_attention_runs(mA, mB, skip_vision=skip_vision)
-        for r in rows:
-            r["group_id"] = gid
-            r["image_id"] = grp["image_id"]
-        all_rows.extend(rows)
-
-    with open("attn_robustness.jsonl", "w") as f:
-        for r in all_rows:
-            f.write(json.dumps(r) + "\n")
-    print(f"Wrote {len(all_rows)} per-layer measurements to attn_robustness.jsonl")
 def parse_args():
     parser = argparse.ArgumentParser(description="Run attention probe with arguments.")
     parser.add_argument("--cache_dir", type=str, required=True, help="Path to cache directory.")
@@ -52,58 +29,19 @@ def parse_args():
     #parser.add_argument("--enable_attn_checker", action="store_true", help="Check if attention maps are accessible.")
     #parser.add_argument("--max_new_tokens", type=int, default=128, help="Max new tokens for generation.")
     parser.add_argument("--save_frequency", type=int, default=5, help="Provide the frequency of saving intermediate results.")
+    parser.add_argument(
+        "--attn_mode",
+        choices=["full", "blocks"],
+        default="full",
+        help="How to package attention before metric comparison: "
+             "'full' = original full matrices, 'blocks' = text/vision blocks (t2t, t2v, v2t, v2v)."
+    )
     return parser.parse_args()
 
-"""
-def main():
-    args = parse_args()
-    CACHE = args.cache_dir
-
-   
-    runner = load_runner(args.model_name, cache_dir=CACHE, enable_attn=True)
- 
-    set_text_layers_eager(runner.model,args.model_name)
-
-
-    hooks = attach_attention_hooks(runner,args.model_name)
-    clear_attn_buffers()
-
-    
-    json_path = "./Datasets/compressed/v2_OpenEnded_mscoco_valrep2014_humans_og_questions.json"
-    images_dir = "./Datasets/val2014/val2014/"
-    print("Loading Dataset")
-    groups = load_vqa_rephrasings(json_path, images_dir)
-    print("Done Loading Dataset")
-    example_key = next(iter(groups))
-    g = groups[example_key]
-    img_path = g["image"]
-    q0 = g["questions"][0]
-    q1 = g["questions"][1] if len(g["questions"]) > 1 else q0
-
-    
-    _ = runner.run(img_path, q0, do_generate=False)
-    maps_A = package_attention_run(vision_attn_weights, text_attn_weights, mm_token_type_ids=None)
-    clear_attn_buffers()
-
-  
-    _ = runner.run(img_path, q1, do_generate=False)
-   
-    maps_B = package_attention_run(vision_attn_weights, text_attn_weights, mm_token_type_ids=None)
-    
-    clear_attn_buffers()
-
-    results = compare_attention_runs(maps_A, maps_B)
-    detach_hooks(hooks)
-
-
-    print_results(results)
-"""
-import os, json, math, statistics as stats
-from collections import defaultdict
 
 
 
-def process_dataset(runner, groups, *, model_name, dataset_name, out_json_path,save_frequency=5,max_images=None,sample_mode="first",seed=0,skip_vision=False):
+def process_dataset(runner, groups, *, model_name, dataset_name, out_json_path,save_frequency=5,max_images=None,sample_mode="first",seed=0,skip_vision=False,attn_mode="full"):
   
     set_text_layers_eager(runner.model, model_name)
 
@@ -154,8 +92,17 @@ def process_dataset(runner, groups, *, model_name, dataset_name, out_json_path,s
             clear_attn_buffers()
             #print(f"  Running reference question q0: {q0}")
             _ = runner.run(img_path, q0, do_generate=False)
-            maps_A = package_attention_run(vision_attn_weights, text_attn_weights, mm_token_type_ids=None)
+            if attn_mode=="blocks":
+                #print(f"  Packaging attention maps in 'blocks' mode...")
+                #print(text_attn_blocks)
+                #print(f"  Packaging attention maps in 'blocks' mode...")
+                maps_A = package_attention_run(vision_attn_weights, text_attn_blocks, mm_token_type_ids=None,attn_mode=attn_mode)
+            else:
+                maps_A = package_attention_run(vision_attn_weights, text_attn_weights, mm_token_type_ids=None,attn_mode=attn_mode)
             clear_attn_buffers()
+            text_attn_blocks.clear()
+            vision_attn_weights.clear()
+            text_attn_weights.clear()
             #print(f"  Done reference question.")
             per_image_pairs = {}  
 
@@ -163,11 +110,21 @@ def process_dataset(runner, groups, *, model_name, dataset_name, out_json_path,s
             for idx, qk in enumerate(paraphrases, start=1):
                 #print(f"  Comparing to paraphrase q{idx}: {qk}")
                 clear_attn_buffers()
+                text_attn_blocks.clear()
+                vision_attn_weights.clear()
+                text_attn_weights.clear()
                 _ = runner.run(img_path, qk, do_generate=False)
                 #print(f"  Done paraphrase question.")
-                maps_B = package_attention_run(vision_attn_weights, text_attn_weights, mm_token_type_ids=None)
+                if attn_mode=="blocks":
+                      
+                      #print(f"  Packaging attention maps in 'blocks' mode...")
+                      maps_B = package_attention_run(vision_attn_weights, text_attn_blocks, mm_token_type_ids=None,attn_mode=attn_mode)
+                else: maps_B = package_attention_run(vision_attn_weights, text_attn_weights, mm_token_type_ids=None,attn_mode=attn_mode)
                 #print(f"  Packaging attention maps done.")
                 clear_attn_buffers()
+                text_attn_blocks.clear()
+                vision_attn_weights.clear()
+                text_attn_weights.clear()
                 #print(f"  Comparing attention runs...")
                 rows = compare_attention_runs(maps_A, maps_B,skip_vision=skip_vision) 
                 #print(f"  Comparison done. Results:")
@@ -234,16 +191,17 @@ def main():
     groups = load_vqa_rephrasings(json_path, images_dir)
     print("Done Loading Dataset")
 
-    out_json = os.path.join("experiments", dataset_name, args.model_name, "metrics_and_summaries.json")
+    out_json = os.path.join("experiments", dataset_name, args.model_name, "metrics_and_summaries_blocks.json")
     process_dataset(runner, groups,
                     model_name=args.model_name,
                     dataset_name=dataset_name,
                     out_json_path=out_json,
                     save_frequency=args.save_frequency,
-                    max_images=10000,          
+                    max_images=10,000,          
                     sample_mode="first",       
                     seed=0,
-                    skip_vision=False                    
+                    skip_vision=True,
+                    attn_mode=args.attn_mode,                     
                     )
 if __name__ == "__main__":
     main()

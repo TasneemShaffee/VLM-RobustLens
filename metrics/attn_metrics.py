@@ -241,8 +241,21 @@ def compare_attention_runs(maps_A, maps_B,skip_vision=False):
             "type": a.get("type", B_by_name[name].get("type", "unknown")),
             #"type": "vision" if (pa.numel() == (ta.shape[-1]*ta.shape[-2]) and ta.shape[-1]==ta.shape[-2]) else "textish",
         }
+        #print("type",a["type"])
         #print("*** res ",res)
+        """if "text→vision" in a["type"]  or "vision→text" in a["type"] :
+            try:
+              
+                res["xattn_rank_corr_img"]  = cross_attention_rank_corr(ta, tb, axis="img")
+                res["xattn_rank_corr_text"] = cross_attention_rank_corr(ta, tb, axis="text")
+            except Exception as e:
+                res["xattn_rank_corr_img"]  = float("nan")
+                res["xattn_rank_corr_text"] = float("nan")"""
+                # optional: print(e)
+
+     
         results.append(res)
+    #print("*** res ",results)
     return results
 
 def print_results(results, top=10):
@@ -268,7 +281,8 @@ def print_results(results, top=10):
         return st.mean(vals) if vals else float("nan")
 
     print("\n=== Summary (averages by component type) ===")
-    for comp in ("vision", "text"):
+    #for comp in ("vision", "text"):
+    for comp in ("text→vision", "text","vision→text"):    
         print(
             f"{comp:7s} | "
             f"KL={avg('kl_div', comp):.4f} | "
