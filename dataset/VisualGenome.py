@@ -4,27 +4,31 @@ import os
 from pathlib import Path
 from collections import defaultdict
 #use this import or full pipeline
-from .llm_rephrasing import back_translate, gram_var_and_syn_rep
+#from .llm_rephrasing import back_translate, gram_var_and_syn_rep
 #use this import for preprocessing
-#from llm_rephrasing import back_translate, gram_var_and_syn_rep
+from llm_rephrasing import back_translate, gram_var_and_syn_rep
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Run attention probe with arguments.")
     parser.add_argument("--input_json", type=Path, required=True, help="Path to unprocessed VisualGenome JSON")
     parser.add_argument("--output_json", type=Path, required=True, help="Path to save preprocessed VisualGenome JSON")
+    parser.add_argument("--max_questions", type=str, default=600, help="Enter the maximum number of questions you would like rephrased")
+    parser.add_argument("--rephrase_technique", type=str, required=True, choices=["back", "gram"], help="Rephrasing type you want done (back or gram)")
     return parser.parse_args()
 
-def preprocess_json(json_path, output_path):
+def preprocess_json(json_path, output_path, reph, max_questions):
     data = json.loads(Path(json_path).read_text())
     flattened_json = [qa for qas in data for qa in qas["qas"]]
+    rephrasing_id = max([qa["qa_id"] for qa in flattened_json]) + 1
     rephrasing_dicts = []
     
-    rephrasing_id = max([qa["qa_id"] for qa in flattened_json]) + 1
     
-    for qa in flattened_json:
-      rephrasings = gram_var_and_syn_rep(qa["question"], count=3) + back_translate(qa["question"], count=3)
+    
+    for qa in flattened_json[:max_questions]:
+      rephrasings = gram_var_and_syn_rep(qa["question"], count=3) if reph=="gram" else  back_translate(qa["question"], count=3)
       for r in rephrasings:
+        print("Adding rephrasing: \n", r)
         rephrasing_dicts.append({
             "qa_id": rephrasing_id,
             "rephrasing_of": qa["qa_id"],
@@ -34,13 +38,13 @@ def preprocess_json(json_path, output_path):
             "answer": qa['answer'],
         })
         rephrasing_id += 1
-      qas = rephrasing_dicts + flattened_json
-      output_json = {"Name": "VisualGenome_with_Rephrasings", "qas": qas}
-      try:
-        output_path.write_text(json.dumps(output_json, indent=2))
-        return
-      except Exception as e:
-        print(f"Error writing to {output_path}: {e}")
+    qas = rephrasing_dicts + flattened_json
+    output_json = {"Name": "VisualGenome_with_Rephrasings", "qas": qas}
+    try:
+      output_path.write_text(json.dumps(output_json, indent=2))
+      return
+    except Exception as e:
+      print(f"Error writing to {output_path}: {e}")
 
 
 
@@ -101,7 +105,7 @@ def main():
     
     print(f"Starting preprocessing of {args.input_json}")
     try:
-      preprocess_json(args.input_json, args.output_json)
+      preprocess_json(args.input_json, args.output_json, args.rephrase_technique, args.max_questions)
       print(f"\nPreprocessing finished. Output saved to {args.output_json}")
     except Exception as e:
       print(f"Error during preprocessing: {e}")
