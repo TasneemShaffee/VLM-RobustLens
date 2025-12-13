@@ -1,21 +1,28 @@
 import os
+
 from abc import ABC
 from typing import Optional, Dict, Any, Union, List
 from PIL import Image
 import torch
+
+
 import torchvision.transforms as T
 from io import BytesIO
 import os
 import requests
+
 from transformers import (
     AutoConfig,
     AutoProcessor,
     AutoTokenizer,
+    AutoModelForVision2Seq,
     AutoModelForCausalLM,
     AutoModel,
     AutoModelForImageTextToText,
 )
+
 from torchvision.transforms.functional import InterpolationMode
+import argparse
 
 
 def _dtype():
@@ -39,7 +46,6 @@ def _pilify(im):
 
 class VLMRunner(ABC):
     supports_template_packs_images: bool = False
-    print("in vlm runner class -- before init")
 
     def __init__(
         self,
@@ -60,6 +66,11 @@ class VLMRunner(ABC):
         self.device_map = device_map
         self.torch_dtype = torch_dtype or _dtype()
         self.enable_attn = enable_attn
+
+        self.last_input_ids = None
+        self.last_text_mask = None
+        self.last_vision_mask = None
+        self.image_grid_thw = None
 
         if cache_dir:
             os.environ.setdefault("HF_HOME", cache_dir)
@@ -108,36 +119,33 @@ class VLMRunner(ABC):
         )
 
         try:
-            print("trying model")
             self.model = AutoModelForImageTextToText.from_pretrained(
                 self.model_id, **self.common
             )
-            print("model try succeeded")
         except Exception:
-            print("backup")
             self.model = AutoModelForCausalLM.from_pretrained(
                 self.model_id, **self.common
             )
-            print("backup succeeded")
-
         self.model.eval()
         self.device = next(self.model.parameters()).device
 
     def _pack_inputs(self, images, text) -> Dict[str, Any]:
-
         msgs = self._messages(images, text)
         if self.supports_template_packs_images:
 
-            return self.processor.apply_chat_template(  # type: ignore
+            return self.processor.apply_chat_template(
                 msgs,
                 tokenize=True,
                 add_generation_prompt=True,
                 return_tensors="pt",
                 return_dict=True,
+                return_mm_token_type_ids=True,
             )
 
-        prompt = self.processor.apply_chat_template(  # type: ignore
-            msgs, tokenize=False, add_generation_prompt=True
+        prompt = self.processor.apply_chat_template(
+            msgs,
+            tokenize=False,
+            add_generation_prompt=True,
         )
 
         pil_imgs = []
@@ -146,10 +154,13 @@ class VLMRunner(ABC):
                 pil_imgs.append(im)
             elif isinstance(im, str) and not im.startswith("http"):
                 pil_imgs.append(Image.open(im).convert("RGB"))
-
         return self.processor(
-            text=[prompt], images=pil_imgs or None, return_tensors="pt"
-        )  # type: ignore
+            text=[prompt],
+            images=pil_imgs or None,
+            return_tensors="pt",
+            return_mm_token_type_ids=True,
+        )
+        # return self.processor(text=[prompt], images=pil_imgs or None, return_tensors="pt")
 
     def build_tokenizer(self, model_id: str):
 
@@ -162,24 +173,38 @@ class VLMRunner(ABC):
         content.append({"type": "text", "text": text})
         return [{"role": "user", "content": content}]
 
-    def _pack(self, images, text) -> Dict[str, Any]:
+    """def _pack(self, images, text) -> Dict[str, Any]:
         msgs = self._messages(images, text)
         if self.supports_template_packs_images:
-            return self.processor.apply_chat_template(  # type: ignore
-                msgs,
-                tokenize=True,
-                add_generation_prompt=True,
-                return_tensors="pt",
-                return_dict=True,
+            return self.processor.apply_chat_template(
+                msgs, tokenize=True, add_generation_prompt=True,
+                return_tensors="pt", return_dict=True
             )
-
-        prompt = self.processor.apply_chat_template(  # type: ignore
+       
+        prompt = self.processor.apply_chat_template(
             msgs, tokenize=False, add_generation_prompt=True
         )
         pil_images = [x for x in map(_pilify, images) if isinstance(x, Image.Image)]
-        return self.processor(
-            text=[prompt], images=pil_images or None, return_tensors="pt"
-        )  # type: ignore
+        return self.processor(text=[prompt], images=pil_images or None, return_tensors="pt")"""
+
+    def _pack(self, images, text) -> Dict[str, Any]:
+        msgs = self._messages(images, text)
+
+        prompt = self.processor.apply_chat_template(
+            msgs,
+            tokenize=False,
+            add_generation_prompt=True,
+        )
+
+        pil_images = [x for x in map(_pilify, images) if isinstance(x, Image.Image)]
+
+        batch = self.processor(
+            text=[prompt],
+            images=pil_images or None,
+            return_tensors="pt",
+            return_mm_token_type_ids=True,
+        )
+        return batch
 
     def run(
         self,
@@ -191,6 +216,49 @@ class VLMRunner(ABC):
     ):
         images = _to_list(images)
         inputs = self._pack(images, text)
+
+        ##### text and vision token masks
+        self.last_input_ids = inputs.get("input_ids", None)
+        self.image_grid_thw = inputs.get("image_grid_thw", None)
+        # print ("inputs ",inputs)
+        mm = inputs.get("mm_token_type_ids", None)
+        # print ("mm_token_type_ids ",mm)
+
+        if mm is None:
+            mm = inputs.get("token_type_ids", None)
+            # print("token_type_ids ", mm)
+
+        if mm is not None:
+            if not torch.is_tensor(mm):
+                mm = torch.tensor(mm)
+
+            # For both Qwen3-VL and Gemma:
+            # 1 = vision/image tokens, 0 = text tokens
+            self.last_vision_mask = mm == 1
+            self.last_text_mask = mm == 0
+
+            # print("vision tokens:", self.last_vision_mask.sum().item(), "text tokens:", self.last_text_mask.sum().item())
+        else:
+            # all tokens are text, no vision tokens
+            if self.last_input_ids is not None:
+                self.last_text_mask = torch.ones_like(
+                    self.last_input_ids, dtype=torch.bool
+                )
+                self.last_vision_mask = torch.zeros_like(
+                    self.last_input_ids, dtype=torch.bool
+                )
+            else:
+                self.last_text_mask = None
+                self.last_vision_mask = None
+
+        if self.last_input_ids is not None:
+            self.last_input_ids = self.last_input_ids.to(self.device)
+        if self.last_text_mask is not None:
+            self.last_text_mask = self.last_text_mask.to(self.device)
+        if self.last_vision_mask is not None:
+            self.last_vision_mask = self.last_vision_mask.to(self.device)
+        # print("self.last_text_mask  ",self.last_text_mask )
+
         for k, v in list(inputs.items()):
             if torch.is_tensor(v):
                 inputs[k] = v.to(self.device)
@@ -198,24 +266,29 @@ class VLMRunner(ABC):
         with torch.no_grad():
             if do_generate:
                 gen_kwargs = gen_kwargs or {}
-                out_ids = self.model.generate(**inputs, **gen_kwargs)  # type: ignore
+
+                gen_inputs = dict(inputs)
+                gen_inputs.pop("mm_token_type_ids", None)
+
+                out_ids = self.model.generate(**gen_inputs, **gen_kwargs)
                 if "input_ids" in inputs:
                     trimmed = [
                         o[len(i) :] for i, o in zip(inputs["input_ids"], out_ids)
                     ]
                 else:
                     trimmed = out_ids
-                return self.processor.batch_decode(  # type: ignore
+                return self.processor.batch_decode(
                     trimmed,
                     skip_special_tokens=True,
                     clean_up_tokenization_spaces=False,
                 )
+
             return self.model(
                 **inputs,
                 output_attentions=self.enable_attn,
                 return_dict=True,
                 use_cache=False,
-            )  # type: ignore
+            )
 
 
 class Qwen3VLRunner(VLMRunner):
@@ -368,6 +441,13 @@ class InternVLRunner(VLMRunner):
         image_flags = torch.ones(
             pixel_values.shape[0], 1, dtype=torch.bool, device=self.device
         )
+        #####
+        img_ctx_id = self.model.img_context_token_id
+        vision_mask = input_ids == img_ctx_id
+        text_mask = ~vision_mask
+        self.last_input_ids = input_ids
+        self.last_text_mask = text_mask
+        self.last_vision_mask = vision_mask
 
         with torch.no_grad():
             outputs = self.model(
@@ -381,6 +461,75 @@ class InternVLRunner(VLMRunner):
             )
 
         return outputs
+
+    """def run(
+        self,
+        images: Union[str, Image.Image, List[Union[str, Image.Image]]],
+        text: Union[str, List[str]],
+        *,
+        do_generate: bool = True,
+        gen_kwargs: Optional[Dict[str, Any]] = None,
+        history: Optional[Any] = None,
+        ):
+   
+     
+        gen_cfg = dict(max_new_tokens=1024, do_sample=True)
+
+        if isinstance(images, (str, Image.Image)):
+            images = [images]
+
+        is_batch_text = isinstance(text, list)
+        if is_batch_text and len(text) != len(images):
+            raise ValueError("When passing a list of prompts, its length must match the number of images.")
+
+
+        all_tiles = []
+        num_patches_list = []
+        transform = self.build_transform(self.image_size) 
+
+        for im in images:
+         
+            pil = self._pilify(im)  
+        
+            tiles = self.dynamic_preprocess(
+            pil,
+            image_size=self.image_size,
+            use_thumbnail=True,
+            max_num=self.max_num,
+            )
+            num_patches_list.append(len(tiles))
+         
+            pv = torch.stack([transform(t) for t in tiles])
+            all_tiles.append(pv)
+
+   
+        pixel_values = torch.cat(all_tiles, dim=0).to(self.device, dtype=torch.bfloat16)
+
+        if len(images) == 1 and not is_batch_text:
+            #print("Single image and single text input mode.")
+            response = self.model.chat(
+                self.tokenizer,
+                pixel_values,
+                text,
+                gen_cfg,
+                num_patches_list=num_patches_list,   
+                history=history,
+                return_history=False,
+                )
+            #return {"text": response, "history": hist}
+            return {"text": response}
+
+        else:
+            questions = text if is_batch_text else [text] * len(images)
+            responses = self.model.batch_chat(
+            self.tokenizer,
+            pixel_values,
+            num_patches_list=num_patches_list,
+            questions=questions,
+            generation_config=gen_cfg,
+            )
+   
+            return responses """
 
     def build_transform(self, input_size):
         IMAGENET_MEAN = (0.485, 0.456, 0.406)
@@ -497,12 +646,16 @@ def load_runner(name: str, *, model_id: Optional[str] = None, **kwargs) -> VLMRu
     print(f"Loading runner for model: {key}")
     model_id = model_id or DEFAULT_IDS.get(key)
     if key.startswith("qwen"):
-        return Qwen3VLRunner(model_id, **kwargs)  # type: ignore
+        return Qwen3VLRunner(model_id, **kwargs)
     if key.startswith("intern"):
-        return InternVLRunner(model_id, **kwargs)  # type: ignore
+        return InternVLRunner(model_id, **kwargs)
     if key.startswith("gemma"):
-        return Gemma3Runner(model_id, **kwargs)  # type: ignore
+        return Gemma3Runner(model_id, **kwargs)
     if key.startswith("cog"):
-        return CogVLMRunner(model_id, **kwargs)  # type: ignore
+        return CogVLMRunner(model_id, **kwargs)
 
-    return VLMRunner(model_id, **kwargs)  # type: ignore
+    return VLMRunner(model_id, **kwargs)
+
+    # outputs = runner.run(img_url, text, do_generate=False)
+    # if hasattr(outputs, "attentions") and outputs.attentions is not None:
+    #    print("Got attention maps.")

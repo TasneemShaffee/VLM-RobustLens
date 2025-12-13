@@ -82,6 +82,14 @@ def parse_args():
         choices=["first", "random"],
         help="The sampling mode.",
     )
+    parser.add_argument(
+        "--attn_mode",
+        type=str,
+        default="full",
+        choices=["full", "blocks"],
+        help="How to package attention before metric comparison: "
+        "'full' = original full matrices, 'blocks' = text/vision blocks (t2t, t2v, v2t, v2v).",
+    )
 
     return parser.parse_args()
 
@@ -98,6 +106,7 @@ def process_dataset(
     sample_mode="first",
     seed=0,
     skip_vision=False,
+    attn_mode="full",
 ):
 
     set_text_layers_eager(runner.model, model_name)
@@ -145,25 +154,64 @@ def process_dataset(
             if not paraphrases:
                 continue
 
-            print(f"Processing image #{image_id}")
-
             clear_attn_buffers()
+
             _ = runner.run(img_path, q0, do_generate=False)
-            maps_A = package_attention_run(
-                vision_attn_weights, text_attn_weights, mm_token_type_ids=None
-            )
+
+            if attn_mode == "blocks":
+                maps_A = package_attention_run(
+                    vision_attn_weights,
+                    text_attn_blocks,
+                    mm_token_type_ids=None,
+                    attn_mode=attn_mode,
+                )
+            else:
+                maps_A = package_attention_run(
+                    vision_attn_weights,
+                    text_attn_weights,
+                    mm_token_type_ids=None,
+                    attn_mode=attn_mode,
+                )
 
             clear_attn_buffers()
+
+            text_attn_blocks.clear()
+            vision_attn_weights.clear()
+            text_attn_weights.clear()
+
             per_image_pairs = {}
 
             for idx, qk in enumerate(paraphrases, start=1):
+
                 clear_attn_buffers()
+                text_attn_blocks.clear()
+                vision_attn_weights.clear()
+                text_attn_weights.clear()
                 _ = runner.run(img_path, qk, do_generate=False)
-                maps_B = package_attention_run(
-                    vision_attn_weights, text_attn_weights, mm_token_type_ids=None
-                )
+
+                if attn_mode == "blocks":
+
+                    maps_B = package_attention_run(
+                        vision_attn_weights,
+                        text_attn_blocks,
+                        mm_token_type_ids=None,
+                        attn_mode=attn_mode,
+                    )
+                else:
+                    maps_B = package_attention_run(
+                        vision_attn_weights,
+                        text_attn_weights,
+                        mm_token_type_ids=None,
+                        attn_mode=attn_mode,
+                    )
+
                 clear_attn_buffers()
+                text_attn_blocks.clear()
+                vision_attn_weights.clear()
+                text_attn_weights.clear()
+
                 rows = compare_attention_runs(maps_A, maps_B, skip_vision=skip_vision)
+
                 per_image_pairs[f"q0|q{idx}"] = rows
                 all_rows_all_images.extend(rows)
 
@@ -184,7 +232,6 @@ def process_dataset(
                 "summary": per_image_summary,
             }
             results_payload["num_images"] += 1
-
             print("Number of images processed: ", results_payload["num_images"])
 
             if results_payload["num_images"] % save_frequency == 0:
@@ -203,7 +250,6 @@ def process_dataset(
             "overall": _agg_rows(all_rows_all_images),
             "by_type": _group_by_type(all_rows_all_images),
         }
-
         os.makedirs(os.path.dirname(out_json_path), exist_ok=True)
         with open(out_json_path, "w") as f:
             json.dump(results_payload, f, indent=2)
