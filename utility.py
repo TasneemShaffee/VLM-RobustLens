@@ -1,7 +1,9 @@
+from pathlib import Path
 from collections import defaultdict
 import json
 from dataset import *
 import os
+import torch
 from src import *
 from metrics import *
 import json
@@ -85,7 +87,7 @@ def set_text_layers_eager(model, model_name=None):
         )
         if hasattr(attn, "config"):
             # print("Setting text attention to eager mode...")
-            attn.config._attn_implementation = "eager"  # type: ignore
+            attn.config._attn_implementation = "eager"
 
     # Returning attention weights is safer with cache off
     if hasattr(model.config, "use_cache"):
@@ -118,15 +120,12 @@ def attach_attention_hooks(runner, model_name=None):
         )
         if t_attn is not None:
             if name == "internvl":
-                hooks.append(
-                    t_attn.register_forward_hook(
-                        _internvl_text_attn_hook, with_kwargs=True
-                    )
-                )
+                hook_fn = make_internvl_text_attn_hook(runner)
+                hooks.append(t_attn.register_forward_hook(hook_fn, with_kwargs=True))
             else:
-                hooks.append(
-                    t_attn.register_forward_hook(_text_attn_hook, with_kwargs=True)
-                )
+                hook_fn = make_text_attn_hook(runner)
+                hooks.append(t_attn.register_forward_hook(hook_fn, with_kwargs=True))
+                # hooks.append(t_attn.register_forward_hook(_text_attn_hook, with_kwargs=True))
 
     # -------- VISION LAYERS --------
     if name == "internvl":
@@ -242,3 +241,19 @@ def _group_by_type(rows):
         # r["type"] expected in {"vision","text","text↔text","text→vision","vision→text","textish", ...}
         by_type[r.get("type", "unknown")].append(r)
     return {t: _agg_rows(rr) for t, rr in by_type.items()}
+
+
+from PIL import Image
+
+
+def _image_exists(img_path: str) -> bool:
+    if not isinstance(img_path, str) or img_path.startswith(("http://", "https://")):
+        return True
+    if not os.path.isfile(img_path):
+        return False
+    try:
+        with Image.open(img_path) as im:
+            im.verify()
+        return True
+    except Exception:
+        return False
