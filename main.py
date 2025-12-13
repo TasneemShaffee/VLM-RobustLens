@@ -90,6 +90,9 @@ def parse_args():
         help="How to package attention before metric comparison: "
         "'full' = original full matrices, 'blocks' = text/vision blocks (t2t, t2v, v2t, v2v).",
     )
+    parser.add_argument(
+        "--out_dir", type=str, help="The directory where results should be saved."
+    )
 
     return parser.parse_args()
 
@@ -289,7 +292,7 @@ def main():
         raise RuntimeError("Failed to load dataset")
 
     out_json = os.path.join(
-        "experiments", dataset_name, args.model_name, "metrics_and_summaries.json"
+        args.out_dir, dataset_name, args.model_name, "metrics_and_summaries.json"
     )
 
     process_dataset(
