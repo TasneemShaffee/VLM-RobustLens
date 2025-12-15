@@ -396,7 +396,7 @@ class InternVLRunner(VLMRunner):
 
         return outputs   
               
-    """def run(
+    def generate_response(
         self,
         images: Union[str, Image.Image, List[Union[str, Image.Image]]],
         text: Union[str, List[str]],
@@ -406,7 +406,8 @@ class InternVLRunner(VLMRunner):
         history: Optional[Any] = None,
         ):
    
-     
+        image_size=  448 
+        max_num= 12
         gen_cfg = dict(max_new_tokens=1024, do_sample=True)
 
         if isinstance(images, (str, Image.Image)):
@@ -419,7 +420,7 @@ class InternVLRunner(VLMRunner):
 
         all_tiles = []
         num_patches_list = []
-        transform = self.build_transform(self.image_size) 
+        transform = self.build_transform(image_size) 
 
         for im in images:
          
@@ -427,9 +428,9 @@ class InternVLRunner(VLMRunner):
         
             tiles = self.dynamic_preprocess(
             pil,
-            image_size=self.image_size,
+            image_size=image_size,
             use_thumbnail=True,
-            max_num=self.max_num,
+            max_num=max_num,
             )
             num_patches_list.append(len(tiles))
          
@@ -440,7 +441,7 @@ class InternVLRunner(VLMRunner):
         pixel_values = torch.cat(all_tiles, dim=0).to(self.device, dtype=torch.bfloat16)
 
         if len(images) == 1 and not is_batch_text:
-            #print("Single image and single text input mode.")
+          
             response = self.model.chat(
                 self.tokenizer,
                 pixel_values,
@@ -463,8 +464,8 @@ class InternVLRunner(VLMRunner):
             generation_config=gen_cfg,
             )
    
-            return responses """
-
+            return responses 
+    
     def build_transform(self,input_size):
         IMAGENET_MEAN = (0.485, 0.456, 0.406)
         IMAGENET_STD = (0.229, 0.224, 0.225)

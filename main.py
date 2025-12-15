@@ -5,8 +5,7 @@ from dataset import *
 
 import os
 import torch
-#from src.attn_spy import init_attention_spy, ATTMAPS
-#ATTMAPS = init_attention_spy()
+
 import argparse
 from src import *
 

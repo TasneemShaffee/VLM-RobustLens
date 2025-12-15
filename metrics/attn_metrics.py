@@ -196,8 +196,22 @@ def center_shift(A2d, B2d, normalize_by="diag"):
     return float(d)
 
 
+from scipy.stats import wasserstein_distance
 
+def emd_1d(p, q):
+    p = np.asarray(p, dtype=np.float64); p = p/(p.sum()+EPS)
+    q = np.asarray(q, dtype=np.float64); q = q/(q.sum()+EPS)
+    x = np.arange(len(p))
+    return float(wasserstein_distance(x, x, u_weights=p, v_weights=q))
 
+def concentration_score(alpha_1d):
+
+    p = np.asarray(alpha_1d, dtype=np.float64).ravel()
+    p = p / (p.sum() + EPS)
+    H = -np.sum(p * np.log(p + EPS))
+    N = p.size
+    C = 1.0 - (H / (np.log2(N + EPS)))
+    return float(C)
 
 def compare_attention_runs(maps_A, maps_B,skip_vision=False):
 

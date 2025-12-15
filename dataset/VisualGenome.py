@@ -71,6 +71,7 @@ def preprocess_json(json_path, output_path):
 def load_vg_vqa_rephrasings(json_path, images_dir):
     data = json.loads(Path(json_path).read_text())
     rows = []
+    i=0
     for qa in data["qas"]:
         image_id = qa["image_id"]
         group_id = qa.get("rephrasing_of", "qa_id")  
