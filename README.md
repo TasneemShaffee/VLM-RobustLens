@@ -70,6 +70,6 @@ The choices for --model_name configuration: "internvl", "gemma3", "qwen3vl"
 ```bash
 python  evaluate_results_by_judge.py --cache_dir <cashe directory that stores huggingface models> --model_name "qwen3vl" --save_frequency 5
 ```
-The choices for --model_name configuration: "internvl", "gemma3", "qwen3vl"
+The choices for --model_name configuration: "internvl", "gemma3", "qwen3vl" and if you want the model generates answers put to the command "--do_generate"
 
 
