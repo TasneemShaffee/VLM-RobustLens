@@ -50,24 +50,26 @@ It should be saved under Datasets to have structure as follows:
     - v2_OpenEnded_mscoco_valrep2014_humans_og_questions.json
 ## Inference
 
-To run the inference of vlm using huggingface api on one image:  
 
-```bash
-cd src
-
-python vlm_inference.py --cache_dir <directory to save the vlm> --model_name "qwen3vl" 
-```
-To run the inference of vlm using huggingface api on one image  and check the accessible attention maps:
-
-```bash
-cd src
-
-python vlm_inference.py --cache_dir <directory to save the vlm> --model_name "qwen3vl" --enable_attn_checker
-```
-
-To run the full pipeline on cyclic consistency dataset (human paraphrased dataset):
+1. To run the full pipeline on VQA-Paraphrasing dataset (human paraphrased dataset):
 
 ```bash
 python main.py --cache_dir <cashe directory that stores huggingface models> --model_name "internvl" --save_frequency 5
 ```
 The choices for --model_name configuration: "internvl", "gemma3", "qwen3vl"
+
+2. To run the stress analysis pipeline on VQA-Paraphrasing dataset :
+
+```bash
+python  main_stress_analysis.py --cache_dir <cashe directory that stores huggingface models> --model_name "qwen3vl" --save_frequency 5 --attn_mode blocks
+```
+The choices for --model_name configuration: "internvl", "gemma3", "qwen3vl"
+
+3. To evaluate the generated answers of the VLM models for the stress analysis:
+
+```bash
+python  evaluate_results_by_judge.py --cache_dir <cashe directory that stores huggingface models> --model_name "qwen3vl" --save_frequency 5
+```
+The choices for --model_name configuration: "internvl", "gemma3", "qwen3vl"
+
+
