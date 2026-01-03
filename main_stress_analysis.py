@@ -98,9 +98,58 @@ def parse_args():
              "'full' = original full matrices, 'blocks' = text/vision blocks (t2t, t2v, v2t, v2v)."
     )
     parser.add_argument("--save_attn", action="store_true", help="Save per-image per-variant attention maps to JSON.")
-    parser.add_argument("--save_heads", action="store_true", help="If set, do NOT average over heads; store head dimension.")
-    parser.add_argument("--attn_out", type=str, default="attn_dump.json", help="Where to save attention maps JSON.")
+    parser.add_argument("--do_generate", action="store_true", help="Generates answers from the model.",default=False)
+    
+    parser.add_argument("--save_heads", action="store_true", help="If set, do NOT average over heads; store head dimension.",default=False)
+
     parser.add_argument("--attn_layers", type=str, default="-1", help="Which layers to save: '-1' or 'all' or '0,5,10'.")
+    parser.add_argument(
+    "--max_images",
+    type=int,
+    default=10,
+    help="Maximum number of images to process (default: 10)"
+    )
+
+    parser.add_argument(
+    "--sample_mode",
+    type=str,
+    default="first",
+    choices=["first", "random"],
+    help="Sampling mode for images (default: first)"
+    )
+
+    parser.add_argument(
+    "--seed",
+    type=int,
+    default=0,
+    help="Random seed (default: 0)"
+    )
+
+    parser.add_argument(
+    "--skip_vision",
+    action="store_true",
+    default=False,
+    help="Skip vision processing (default: False)"
+    )
+    parser.add_argument(
+    "--json_path",
+    type=str,
+    default="./Datasets/compressed/v2_OpenEnded_mscoco_valrep2014_humans_og_questions.json",
+    help="Path to the input questions JSON file"
+    )
+
+    parser.add_argument(
+    "--images_dir",
+    type=str,
+    default="./Datasets/val2014/val2014/",
+    help="Directory containing input images"
+    )
+    parser.add_argument(
+    "--dataset_name",
+    type=str,
+    default="COCO-rephrase",
+    help="Name of the dataset (default: COCO-rephrase)"
+    )
     return parser.parse_args()
 
 
@@ -191,7 +240,7 @@ def process_dataset(
 
           
             q0, variants = build_variants_for_gid(STRESS_BANK, gid)
-            print("grp:", grp)
+           
             if q0 is None or not variants:
                 print(f"[SKIP] No variants found for group_id={gid}")
                 continue
@@ -434,35 +483,36 @@ def process_dataset(
 
 def main():
     args = parse_args()
+    print("Arguments Configurations: \n ", args)
     CACHE = args.cache_dir
-    dataset_name = "COCO-rephrase"  
+    dataset_name = args.dataset_name
 
     runner = load_runner(args.model_name, cache_dir=CACHE, enable_attn=True)
 
  
-    json_path  = "./Datasets/compressed/v2_OpenEnded_mscoco_valrep2014_humans_og_questions.json"
-    images_dir = "./Datasets/val2014/val2014/"
+    json_path  = args.json_path
+    images_dir = args.images_dir
     print("Loading Dataset")
     groups = load_vqa_rephrasings(json_path, images_dir)
     print("Done Loading Dataset")
 
-    out_json = os.path.join("experiments", dataset_name, args.model_name, "metrics_and_summaries_attent_type.json")
-    answers_json_path = os.path.join("experiments", dataset_name, args.model_name, "answers_type.json")
-    attn_out_path= os.path.join("experiments", dataset_name, args.model_name, "attn_dump.json")
+    out_json = os.path.join("experiments", dataset_name, args.model_name, "metrics_and_summaries_attent_type_.json")
+    answers_json_path = os.path.join("experiments", dataset_name, args.model_name, "answers_type_.json")
+    attn_out_path= os.path.join("experiments", dataset_name, args.model_name, "attn_dump_.json")
     process_dataset(runner, groups,
                     model_name=args.model_name,
                     dataset_name=dataset_name,
                     out_json_path=out_json,
                     save_frequency=args.save_frequency,
-                    max_images=10,          
-                    sample_mode="first",      
-                    seed=0,
-                    skip_vision=True,
+                    max_images=args.max_images,          
+                    sample_mode=args.sample_mode,
+                    seed=args.seed,
+                    skip_vision=args.skip_vision,
                     attn_mode=args.attn_mode,  
                     answers_json_path=answers_json_path,   
-                    do_generate=False,
-                    save_attn=True,
-                    save_heads=False,                
+                    do_generate=args.do_generate,
+                    save_attn=args.save_attn,
+                    save_heads=args.save_heads,                
                     attn_out_path=attn_out_path,#"attn_dump.json",
                     attn_layers_spec="-1"                 
                     )

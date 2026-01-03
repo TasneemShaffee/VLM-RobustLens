@@ -3,7 +3,48 @@ from scipy.stats import pearsonr, spearmanr, entropy
 from scipy.optimize import linear_sum_assignment
 import torch
 #from metrics.utils import  _prepare_for_metric
+
+import re
+from collections import Counter
 EPS = 1e-12
+
+import re
+from collections import Counter, defaultdict
+
+def normalize_answer(s: str) -> str:
+    if s is None:
+        return ""
+    s = str(s).lower().strip()
+    s = re.sub(r"[\.\,\!\?\:\;\(\)\[\]\{\}]", " ", s)
+    s = re.sub(r"\b(a|an|the)\b", " ", s)
+    s = re.sub(r"\s+", " ", s).strip()
+    return s
+
+def to_text(ans) -> str:
+   
+    if ans is None:
+        return ""
+    if isinstance(ans, dict) and "text" in ans:
+        return str(ans["text"])
+    if isinstance(ans, list):
+       
+        return "" if len(ans) == 0 else str(ans[0])
+    return str(ans)
+
+def exact_match(a: str, b: str) -> int:
+    return int(normalize_answer(a) == normalize_answer(b))
+
+def vqa_soft_accuracy(pred: str, gt_list: list[str]) -> float:
+    """
+    Standard VQA-style soft accuracy:
+      acc = min(count(match)/3, 1)
+    """
+    p = normalize_answer(pred)
+    g = [normalize_answer(x) for x in (gt_list or [])]
+    if not g:
+        return float("nan")
+    m = sum(1 for x in g if x == p)
+    return float(min(m / 3.0, 1.0))
 
 def _to_float64_np(x):
     if isinstance(x, torch.Tensor):
@@ -26,10 +67,7 @@ def _avg_heads_if_needed(M):
     return M
 
 def _crop_to_overlap(A, B):
-    """
-    Make A and B the same 2D shape by center-cropping (or left-top cropping) to the min dims.
-    We’ll do left-top cropping to keep it simple and deterministic.
-    """
+  
     Ha, Wa = A.shape[-2], A.shape[-1]
     Hb, Wb = B.shape[-2], B.shape[-1]
     Hm, Wm = min(Ha, Hb), min(Wa, Wb)
@@ -38,10 +76,7 @@ def _crop_to_overlap(A, B):
     return A2, B2
 
 def _prepare_for_metric(A, B):
-    """
-    Convert to 2D float64 numpy with identical shape.
-    Returns (A2d, B2d) or (None, None) if cannot be aligned.
-    """
+ 
     A = _to_float64_np(A)
     B = _to_float64_np(B)
     # squeeze trivial dims

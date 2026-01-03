@@ -21,12 +21,6 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Run attention probe with arguments.")
     parser.add_argument("--cache_dir", type=str, required=True, help="Path to cache directory.")
     parser.add_argument("--model_name", type=str, required=True, choices=["gemma3", "qwen3vl", "internvl"],help="Model name to load.")
-    #parser.add_argument("--img_url", type=str, required=True, help="URL of the input image.")
-    #parser.add_argument("--text", type=str, required=True, help="Prompt text.")
-    #parser.add_argument("--enable_attn", action="store_true", help="Enable attention capture.")
-    #parser.add_argument("--do_generate", action="store_true", help="Generate output text.")
-    #parser.add_argument("--enable_attn_checker", action="store_true", help="Check if attention maps are accessible.")
-    #parser.add_argument("--max_new_tokens", type=int, default=128, help="Max new tokens for generation.")
     parser.add_argument("--save_frequency", type=int, default=5, help="Provide the frequency of saving intermediate results.")
     parser.add_argument(
         "--attn_mode",
@@ -34,6 +28,53 @@ def parse_args():
         default="full",
         help="How to package attention before metric comparison: "
              "'full' = original full matrices, 'blocks' = text/vision blocks (t2t, t2v, v2t, v2v)."
+    )
+    parser.add_argument(
+    "--max_images",
+    type=int,
+    default=10000,
+    help="Maximum number of images to process (default: 10)"
+    )
+
+    parser.add_argument(
+    "--sample_mode",
+    type=str,
+    default="first",
+    choices=["first", "random"],
+    help="Sampling mode for images (default: first)"
+    )
+
+    parser.add_argument(
+    "--seed",
+    type=int,
+    default=0,
+    help="Random seed (default: 0)"
+    )
+
+    parser.add_argument(
+    "--skip_vision",
+    action="store_true",
+    default=False,
+    help="Skip vision processing (default: False)"
+    )
+    parser.add_argument(
+    "--json_path",
+    type=str,
+    default="./Datasets/compressed/v2_OpenEnded_mscoco_valrep2014_humans_og_questions.json",
+    help="Path to the input questions JSON file"
+    )
+
+    parser.add_argument(
+    "--images_dir",
+    type=str,
+    default="./Datasets/val2014/val2014/",
+    help="Directory containing input images"
+    )
+    parser.add_argument(
+    "--dataset_name",
+    type=str,
+    default="COCO-rephrase",
+    help="Name of the dataset (default: COCO-rephrase)"
     )
     return parser.parse_args()
 
@@ -89,12 +130,10 @@ def process_dataset(runner, groups, *, model_name, dataset_name, out_json_path,s
 
         
             clear_attn_buffers()
-            #print(f"  Running reference question q0: {q0}")
+          
             _ = runner.run(img_path, q0, do_generate=False)
             if attn_mode=="blocks":
-                #print(f"  Packaging attention maps in 'blocks' mode...")
-                #print(text_attn_blocks)
-                #print(f"  Packaging attention maps in 'blocks' mode...")
+               
                 maps_A = package_attention_run(vision_attn_weights, text_attn_blocks, mm_token_type_ids=None,attn_mode=attn_mode)
             else:
                 maps_A = package_attention_run(vision_attn_weights, text_attn_weights, mm_token_type_ids=None,attn_mode=attn_mode)
@@ -102,32 +141,31 @@ def process_dataset(runner, groups, *, model_name, dataset_name, out_json_path,s
             text_attn_blocks.clear()
             vision_attn_weights.clear()
             text_attn_weights.clear()
-            #print(f"  Done reference question.")
+           
             per_image_pairs = {}  
 
           
             for idx, qk in enumerate(paraphrases, start=1):
-                #print(f"  Comparing to paraphrase q{idx}: {qk}")
+                
                 clear_attn_buffers()
                 text_attn_blocks.clear()
                 vision_attn_weights.clear()
                 text_attn_weights.clear()
                 _ = runner.run(img_path, qk, do_generate=False)
-                #print(f"  Done paraphrase question.")
+             
                 if attn_mode=="blocks":
                       
-                      #print(f"  Packaging attention maps in 'blocks' mode...")
+                    
                       maps_B = package_attention_run(vision_attn_weights, text_attn_blocks, mm_token_type_ids=None,attn_mode=attn_mode)
                 else: maps_B = package_attention_run(vision_attn_weights, text_attn_weights, mm_token_type_ids=None,attn_mode=attn_mode)
-                #print(f"  Packaging attention maps done.")
+               
                 clear_attn_buffers()
                 text_attn_blocks.clear()
                 vision_attn_weights.clear()
                 text_attn_weights.clear()
-                #print(f"  Comparing attention runs...")
+               
                 rows = compare_attention_runs(maps_A, maps_B,skip_vision=skip_vision) 
-                #print(f"  Comparison done. Results:")
-                #print_results(rows, top=10)
+               
                 per_image_pairs[f"q0|q{idx}"] = rows
                 all_rows_all_images.extend(rows)
 
@@ -150,7 +188,7 @@ def process_dataset(runner, groups, *, model_name, dataset_name, out_json_path,s
             }
             results_payload["num_images"] += 1
             print("Number of images processed: ",results_payload["num_images"])
-            #print("results_payload[num_images] ",results_payload["num_images"])
+            
             if results_payload["num_images"]%save_frequency==0:
                 results_payload["dataset_summary"] = {
                 "overall": _agg_rows(all_rows_all_images),
@@ -179,13 +217,13 @@ def process_dataset(runner, groups, *, model_name, dataset_name, out_json_path,s
 def main():
     args = parse_args()
     CACHE = args.cache_dir
-    dataset_name = "COCO-rephrase"  
+    dataset_name = args.dataset_name 
 
     runner = load_runner(args.model_name, cache_dir=CACHE, enable_attn=True)
 
  
-    json_path  = "./Datasets/compressed/v2_OpenEnded_mscoco_valrep2014_humans_og_questions.json"
-    images_dir = "./Datasets/val2014/val2014/"
+    json_path  = args.json_path
+    images_dir = args.images_dir
     print("Loading Dataset")
     groups = load_vqa_rephrasings(json_path, images_dir)
     print("Done Loading Dataset")
@@ -196,10 +234,10 @@ def main():
                     dataset_name=dataset_name,
                     out_json_path=out_json,
                     save_frequency=args.save_frequency,
-                    max_images=10,000,          
-                    sample_mode="first",       
-                    seed=0,
-                    skip_vision=True,
+                    max_images=args.max_images,
+                    sample_mode=args.sample_mode,
+                    seed=args.seed,
+                    skip_vision=args.skip_vision,
                     attn_mode=args.attn_mode,                     
                     )
 if __name__ == "__main__":
