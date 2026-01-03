@@ -51,21 +51,21 @@ It should be saved under Datasets to have structure as follows:
 ## Inference
 
 
-1. To run the full pipeline on VQA-Paraphrasing dataset (human paraphrased dataset):
+1. To run the full pipeline on VQA-Rephrasings dataset (human paraphrased dataset):
 
 ```bash
 python main.py --cache_dir <cashe directory that stores huggingface models> --model_name "internvl" --save_frequency 5
 ```
 The choices for --model_name configuration: "internvl", "gemma3", "qwen3vl"
 
-2. To run the stress analysis pipeline on VQA-Paraphrasing dataset :
+2. To run the stress analysis pipeline on VQA-Rephrasings dataset :
 
 ```bash
 python  main_stress_analysis.py --cache_dir <cashe directory that stores huggingface models> --model_name "qwen3vl" --save_frequency 5 --attn_mode blocks
 ```
 The choices for --model_name configuration: "internvl", "gemma3", "qwen3vl"
 
-3. To evaluate the generated answers of the VLM models for the stress analysis:
+3. To evaluate the generated answers of the VLM models for the stress analysis on VQA-Rephrasings:
 
 ```bash
 python  evaluate_results_by_judge.py --cache_dir <cashe directory that stores huggingface models> --model_name "qwen3vl" --save_frequency 5
