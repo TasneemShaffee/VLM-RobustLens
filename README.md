@@ -96,8 +96,13 @@ python VisualGenome.py --input_json "./Datasets/VisualGenome/question_answers.js
 python VisualGenome.py --input_json "./Datasets/VisualGenome/question_answers.json" --output_json "desired/path/to/back/translation/output.json" --rephrase_tech "back"
 ```
 
-The choices for --rephrase_tech are "gram" for Grammatical rephrasings done by the LLM, or "back" for the LLM to perfor back translation on questions. 
-Additionally, you can adjust the numbe rof questions you want rephrased by specifying a number with the --max_questions param, otherwise the default is 600.
+The choices for --rephrase_tech are "gram" for Grammatical rephrasings done by the LLM, or "back" for the LLM to perfor back translation on questions.  Additionally, you can adjust the number of questions you want rephrased by specifying a number with the --max_questions param, otherwise the default is 600.
+
+NOTE: For running just the rephrasings ensure that the import on line 9 is as follows:
+```bash
+from llm_rephrasing import back_translate, gram_var_and_syn_rep
+```
+The notation with "dataset." is only needed for the full inference pipeline. 
 
 ## Inference
 
