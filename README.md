@@ -64,12 +64,12 @@ It should be saved under Datasets to have structure as follows:
    unzip images2.zip -d vg_100k
   
   
-   mv vg_100k/VG_100K/* vg_100k
-   mv vg_100k/VG_100K_2/* vg_100k
+   mv VG_100K/* vg_100k
+   mv VG_100K_2/* vg_100k
   
   
-   rmdir VisualGenome/vg_100k/VG_100K
-   rmdir VisualGenome/vg_100k/VG_100K_2
+   rmdir VG_100K
+   rmdir VG_100K_2
    rm question_answers.json.zip images.zip images2.zip
 ```
 4. This will download the images and merge them into a single folder vg_100k.
