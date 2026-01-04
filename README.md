@@ -98,7 +98,8 @@ python VisualGenome.py --input_json "./Datasets/VisualGenome/question_answers.js
 
 The choices for --rephrase_tech are "gram" for Grammatical rephrasings done by the LLM, or "back" for the LLM to perfor back translation on questions.  Additionally, you can adjust the number of questions you want rephrased by specifying a number with the --max_questions param, otherwise the default is 600.
 
-NOTE: For running just the rephrasings ensure that the import on line 9 is as follows:
+NOTE: For running just the rephrasings ensure that the import on line 9 in VisualGenome.py
+is as follows:
 ```bash
 from llm_rephrasing import back_translate, gram_var_and_syn_rep
 ```
