@@ -456,13 +456,7 @@ def parse_args():
     parser.add_argument("--cache_dir", type=str, required=True, help="Path to cache directory.")
     parser.add_argument("--model_name", type=str, required=True, choices=["gemma3", "qwen3vl", "internvl"],help="Model name to load.")
     parser.add_argument("--save_frequency", type=int, default=5, help="Provide the frequency of saving intermediate results.")
-    parser.add_argument(
-        "--attn_mode",
-        choices=["full", "blocks"],
-        default="full",
-        help="How to package attention before metric comparison: "
-             "'full' = original full matrices, 'blocks' = text/vision blocks (t2t, t2v, v2t, v2v)."
-    )
+  
     return parser.parse_args()
 
 

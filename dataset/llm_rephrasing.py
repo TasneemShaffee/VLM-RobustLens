@@ -1,3 +1,11 @@
+# --------------------------------------------------------
+# VLM-RobustLens
+# Copyright (c) 2025 Brown University
+# All rights reserved.
+# Licensed under The MIT License [see LICENSE for details]
+# Written by Mathew Prenovitz
+# --------------------------------------------------------
+
 from transformers import pipeline
 import torch
 import gc

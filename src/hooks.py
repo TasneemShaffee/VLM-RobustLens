@@ -1,3 +1,11 @@
+# --------------------------------------------------------
+# VLM-RobustLens
+# Copyright (c) 2025 Brown University
+# All rights reserved.
+# Licensed under The MIT License [see LICENSE for details]
+# Written by Tasneem Shaffee
+# --------------------------------------------------------
+
 import torch
 from transformers.models.qwen2_vl.modeling_qwen2_vl import apply_rotary_pos_emb_vision
 

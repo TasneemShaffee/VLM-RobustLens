@@ -1,3 +1,11 @@
+# --------------------------------------------------------
+# VLM-RobustLens
+# Copyright (c) 2025 Brown University
+# All rights reserved.
+# Licensed under The MIT License [see LICENSE for details]
+# Written by Tasneem Shaffee
+# --------------------------------------------------------
+
 STRESS_BANK = {
   # 1) image_id=361472 group_id=361472000
   361472000: {

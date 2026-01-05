@@ -1,11 +1,17 @@
+# --------------------------------------------------------
+# VLM-RobustLens
+# Copyright (c) 2025 Brown University
+# All rights reserved.
+# Licensed under The MIT License [see LICENSE for details]
+# Written by Mathew Prenovitz
+# --------------------------------------------------------
+
 import argparse
 import json
 import os
 from pathlib import Path
 from collections import defaultdict
-#use this import or full pipeline
-#from .llm_rephrasing import back_translate, gram_var_and_syn_rep
-#use this import for preprocessing
+
 from dataset.llm_rephrasing import back_translate, gram_var_and_syn_rep
 
 

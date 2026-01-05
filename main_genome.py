@@ -1,3 +1,11 @@
+# --------------------------------------------------------
+# VLM-RobustLens
+# Copyright (c) 2025 Brown University
+# All rights reserved.
+# Licensed under The MIT License [see LICENSE for details]
+# Written by Mattew Prenovitz
+# --------------------------------------------------------
+
 from pathlib import Path
 from collections import defaultdict
 import json
