@@ -145,7 +145,11 @@ python  evaluate_results_by_judge.py --cache_dir <cashe directory that stores hu
 The choices for --model_name configuration: "internvl", "gemma3", "qwen3vl" 
 
 ## Results
-![Example image](Images/t2v_grid_image_early_layer_361472_.png)
+<p align="center">
+  <img src="Images/t2v_grid_image_early_layer_361472_.png" width="650">
+  <br>
+  <sub><em>FText-to-Vision attention map visualization per each type of question rewording.</em></sub>
+</p>
 ![Example_2](Images/heatmap_centershift_text2vision_3models.png)
 
 
