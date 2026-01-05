@@ -150,6 +150,13 @@ The choices for --model_name configuration: "internvl", "gemma3", "qwen3vl"
   <br>
   <sub><em>FText-to-Vision attention map visualization per each type of question rewording.</em></sub>
 </p>
-![Example_2](Images/heatmap_centershift_text2vision_3models.png)
+<p align="center">
+  <img src="Images/heatmap_centershift_text2vision_3models.png" width="650">
+  <br>
+  <sub><em>Mean text-to-vision attention center shift across layers for different question rewordings for three models.</em></sub>
+</p>
+
+
+
 
 
