@@ -145,11 +145,15 @@ python  evaluate_results_by_judge.py --cache_dir <cashe directory that stores hu
 The choices for --model_name configuration: "internvl", "gemma3", "qwen3vl" 
 
 ## Results
+The model often reallocates attention to irrelevant or unsupported areas of the image, indicating that linguistic perturbations can directly alter visual grounding as shown below.
 <p align="center">
   <img src="Images/t2v_grid_image_early_layer_361472_.png" width="650">
   <br>
-  <sub><em>FText-to-Vision attention map visualization per each type of question rewording.</em></sub>
+  <sub><em>Text-to-Vision attention map visualization per each type of question rewording.</em></sub>
 </p>
+
+While paraphrasing often preserves answer correctness, it can substantially alter a model’s reasoning process and visual grounding. As shown below, robustness differences arise not from what models answer, but from how they arrive at those answers.
+
 <p align="center">
   <img src="Images/heatmap_centershift_text2vision_3models.png" width="650">
   <br>
