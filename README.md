@@ -135,13 +135,16 @@ The input json_path should be the path to either your back translated rephrasing
 ```bash
 python  main_stress_analysis.py --cache_dir <cashe directory that stores huggingface models> --model_name "qwen3vl" --save_frequency 5 --attn_mode blocks
 ```
-The choices for --model_name configuration: "internvl", "gemma3", "qwen3vl"
+The choices for --model_name configuration: "internvl", "gemma3", "qwen3vl" and if you want the model generates answers put to the command "--do_generate"
 
 4. To evaluate the generated answers of the VLM models for the stress analysis on VQA-Rephrasings or LLM-Rephrasings:
 
 ```bash
 python  evaluate_results_by_judge.py --cache_dir <cashe directory that stores huggingface models> --model_name "qwen3vl" --save_frequency 5
 ```
-The choices for --model_name configuration: "internvl", "gemma3", "qwen3vl" and if you want the model generates answers put to the command "--do_generate"
+The choices for --model_name configuration: "internvl", "gemma3", "qwen3vl" 
+
+## Results
+![Example image](Images/t2v_grid_image_early_layer_361472_.png)
 
 
