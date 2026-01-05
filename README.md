@@ -146,5 +146,6 @@ The choices for --model_name configuration: "internvl", "gemma3", "qwen3vl"
 
 ## Results
 ![Example image](Images/t2v_grid_image_early_layer_361472_.png)
+![Example_2](Images/heatmap_centershift_text2vision_3models.png)
 
 
